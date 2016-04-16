@@ -25,16 +25,26 @@ public class FilesListAdapter extends BaseAdapter {
     private List<File> files;
     private  static  HashMap<Integer,Boolean> isChecked;
     boolean isPackageRoot;
+    private boolean isCheckBoxVisible;
+
+    public  void setCheckBoxVisible(boolean b){
+        isCheckBoxVisible = b;
+    }
+
+    public  boolean getCheckBoxVisible() {
+        return isCheckBoxVisible;
+    }
 
     public FilesListAdapter(Context context, ArrayList<File> files,boolean isPackageRoot){
         this.context = context;
         this.files = files;
         this.isPackageRoot = isPackageRoot;
         isChecked = new HashMap<Integer,Boolean>();
+        isCheckBoxVisible = false;
         initData();
     }
 
-    private void initData() {
+    public void initData() {
         for(int i = 0; i < files.size(); i++) {
             getIsChecked().put(i,false);
         }
@@ -74,6 +84,11 @@ public class FilesListAdapter extends BaseAdapter {
         }
 
         File file = files.get(position);
+        if(isCheckBoxVisible == false) {
+            viewHolder.isChoose.setVisibility(View.GONE);
+        } else {
+            viewHolder.isChoose.setVisibility(View.VISIBLE);
+        }
         if(position == 0 && !isPackageRoot) {
             viewHolder.fileName.setText("..");
             viewHolder.imageView.setImageResource(R.mipmap.icon_directory);

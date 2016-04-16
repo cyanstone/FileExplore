@@ -2,10 +2,13 @@ package com.my.cyanstone.fileexplore;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -22,18 +25,22 @@ import java.util.List;
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
     private final String PATH = "/";    // "/data/data/";// + getActivity().getPackageName();
-    private ListView fileListView;
     private List<File> files;
     private FilesListAdapter adapter;
-    List<File> sortFiles;
+    private List<File> sortFiles;
 
+    private ListView fileListView;
     private Button allChoose, cancelChoose, copy,delete;
     private TextView currentPahtTv, pathFilesNumTv;
+    private LinearLayout buttonsLayout;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_files_list, container, false);
         initView(v);
+        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        v.setOnKeyListener(backListener);
         return v;
     }
 
@@ -50,8 +57,12 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
         delete = (Button) v.findViewById(R.id.delete_files);
         delete.setOnClickListener(this);
+
         currentPahtTv = (TextView) v.findViewById(R.id.current_path);
         pathFilesNumTv = (TextView) v.findViewById(R.id.path_file_nums);
+
+        buttonsLayout = (LinearLayout) v.findViewById(R.id.buttons_layout);
+
         files = new ArrayList<File>();
         String pathRoot = "chmod 777 " + PATH;
         RootCommand(pathRoot);
@@ -61,7 +72,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     }
 
     private void initData(File file) {
-        currentPahtTv.setText(PATH);
+        currentPahtTv.setText(file.getAbsolutePath());
         boolean isRoot = file.getAbsolutePath() == PATH;
         sortFiles = Arrays.asList(file.listFiles());
         if (sortFiles != null && sortFiles.size() > 0) {
@@ -86,6 +97,17 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         pathFilesNumTv.setText(sortFiles.size() + "项");
         adapter = new FilesListAdapter(getActivity(), (ArrayList<File>) files, isRoot);
         fileListView.setAdapter(adapter);
+
+        fileListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                buttonsLayout.setVisibility(View.VISIBLE);
+                adapter.setCheckBoxVisible(true);
+                FilesListAdapter.getIsChecked().put(position,true);
+                adapter.notifyDataSetChanged();
+                return true;
+            }
+        });
     }
 
     public static boolean RootCommand(String command) {
@@ -113,13 +135,34 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         return true;
     }
 
+    View.OnKeyListener backListener = new View.OnKeyListener() {
+        @Override
+        public boolean onKey(View v, int keyCode, KeyEvent event) {
+            if(adapter.getCheckBoxVisible() == true && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    buttonsLayout.setVisibility(View.GONE);
+                    adapter.setCheckBoxVisible(false);
+                    adapter.notifyDataSetChanged();
+                    adapter.initData();
+                    return true;
+            }
+            return false;
+        }
+    };
     @Override
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.all_choose:
+                for(int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
+                    FilesListAdapter.getIsChecked().put(i,true);
+                    adapter.notifyDataSetChanged();
+                }
                 break;
 
             case R.id.cancel_choose:
+                for(int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
+                    FilesListAdapter.getIsChecked().put(i, false);
+                    adapter.notifyDataSetChanged();
+                }
                 break;
 
             case R.id.copy_files:
