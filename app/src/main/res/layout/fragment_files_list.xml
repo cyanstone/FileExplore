@@ -5,16 +5,68 @@
     android:layout_height="match_parent">
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="32dp">
+        android:layout_height="32dp"
+        android:gravity="center_vertical">
         <TextView
             android:id="@+id/current_path"
+            android:layout_marginLeft="16dp"
             android:layout_alignParentLeft="true"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"/>
+            android:layout_height="wrap_content"/>
+        <TextView
+            android:id="@+id/path_file_nums"
+            android:layout_marginRight="16dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"/>
     </RelativeLayout>
+    <View
+        android:background="@color/gray"
+        android:layout_width="match_parent"
+        android:layout_height="1dp" />
     <ListView
         android:id="@+id/files_list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1">
     </ListView>
+    <View
+        android:background="@color/gray"
+        android:layout_width="match_parent"
+        android:layout_height="1dp" />
+
+    <LinearLayout
+        android:id="@+id/buttons_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/all_choose"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:textSize="16sp"
+            android:text="@string/choose_all"/>
+        <Button
+            android:id="@+id/cancel_choose"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:textSize="16sp"
+            android:text="@string/cancel_choose"/>
+        <Button
+            android:id="@+id/copy_files"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:textSize="16sp"
+            android:text="@string/copy_files"/>
+        <Button
+            android:id="@+id/delete_files"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:textSize="16sp"
+            android:text="@string/delete_files"/>
+    </LinearLayout>
 </LinearLayout>

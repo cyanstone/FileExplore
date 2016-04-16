@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -22,13 +23,25 @@ import java.util.List;
 public class FilesListAdapter extends BaseAdapter {
     private Context context;
     private List<File> files;
-    private HashMap<File,Boolean> checkMap;
+    private  static  HashMap<Integer,Boolean> isChecked;
     boolean isPackageRoot;
 
     public FilesListAdapter(Context context, ArrayList<File> files,boolean isPackageRoot){
         this.context = context;
         this.files = files;
         this.isPackageRoot = isPackageRoot;
+        isChecked = new HashMap<Integer,Boolean>();
+        initData();
+    }
+
+    private void initData() {
+        for(int i = 0; i < files.size(); i++) {
+            getIsChecked().put(i,false);
+        }
+    }
+
+    public static HashMap<Integer,Boolean> getIsChecked() {
+        return isChecked;
     }
     @Override
     public int getCount() {
@@ -46,7 +59,7 @@ public class FilesListAdapter extends BaseAdapter {
     }
 
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
+    public View getView(final int position, View convertView, ViewGroup parent) {
         ViewHolder viewHolder;
         if(convertView == null) {
             viewHolder = new ViewHolder();
@@ -70,8 +83,10 @@ public class FilesListAdapter extends BaseAdapter {
             if(file.isDirectory()) {
                 viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
                 File subDirectory = new File(file.getPath());
-              //  int num = subDirectory.listFiles().length;
-                int num = 1;
+                int num = 0;
+                if(subDirectory != null && subDirectory.list() != null) {
+                    num = subDirectory.listFiles().length;
+                }
                 viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + num + "个文件");
             } else {
                 viewHolder.imageView.setImageResource(R.mipmap.icon_file);
@@ -89,6 +104,13 @@ public class FilesListAdapter extends BaseAdapter {
                 viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + sizeInfo);
             }
             viewHolder.fileName.setText(file.getName());
+            viewHolder.isChoose.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    getIsChecked().put(position, isChecked);
+                }
+            });
+            viewHolder.isChoose.setChecked(getIsChecked().get(position));
         }
         return convertView;
     }

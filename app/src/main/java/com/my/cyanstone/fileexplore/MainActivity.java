@@ -8,9 +8,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener{
+public class MainActivity extends AppCompatActivity{
 
-    private Button allChoose, cancelChoose, copy,delete;
 
     private FragmentManager fm;
     @Override
@@ -20,17 +19,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         init();
     }
     private void init(){
-        allChoose = (Button) findViewById(R.id.all_choose);
-        allChoose.setOnClickListener(this);
-
-        cancelChoose = (Button) findViewById(R.id.cancel_choose);
-        cancelChoose.setOnClickListener(this);
-
-        copy = (Button) findViewById(R.id.copy_files);
-        copy.setOnClickListener(this);
-
-        delete = (Button) findViewById(R.id.delete_files);
-        delete.setOnClickListener(this);
 
         fm = getSupportFragmentManager();
         Fragment fragment = fm.findFragmentById(R.id.fragment_container);
@@ -42,23 +30,4 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()){
-            case R.id.all_choose:
-                break;
-
-            case R.id.cancel_choose:
-                break;
-
-            case R.id.copy_files:
-                break;
-
-            case R.id.delete_files:
-                break;
-
-            default:
-                break;
-        }
-    }
 }
