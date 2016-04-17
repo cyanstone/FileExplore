@@ -1,5 +1,6 @@
 package com.my.cyanstone.fileexplore;
 
+
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.KeyEvent;
@@ -24,15 +25,22 @@ import java.util.List;
  * Created by bjshipeiqing on 2016/4/15.
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
-    private final String PATH = "/";    // "/data/data/";// + getActivity().getPackageName();
+    private final String ROOT_PATH = "/";    // "/data/data/";// + getActivity().getPackageName();
     private List<File> files;
     private FilesListAdapter adapter;
-    private List<File> sortFiles;
 
     private ListView fileListView;
     private Button allChoose, cancelChoose, copy,delete;
     private TextView currentPahtTv, pathFilesNumTv;
     private LinearLayout buttonsLayout;
+
+    private static File currentParent;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        currentParent = new File(ROOT_PATH);
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -64,17 +72,18 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         buttonsLayout = (LinearLayout) v.findViewById(R.id.buttons_layout);
 
         files = new ArrayList<File>();
-        String pathRoot = "chmod 777 " + PATH;
+        String pathRoot = "chmod 777 " + ROOT_PATH;
         RootCommand(pathRoot);
-        File file = new File(PATH);
-        sortFiles = new ArrayList<File>();
+        File file = new File(ROOT_PATH);
         initData(file);
     }
 
     private void initData(File file) {
-        currentPahtTv.setText(file.getAbsolutePath());
-        boolean isRoot = file.getAbsolutePath() == PATH;
-        sortFiles = Arrays.asList(file.listFiles());
+        boolean isRoot = file.getAbsolutePath() == ROOT_PATH;
+        List<File> sortFiles = new ArrayList<File>();
+        if (file.listFiles() != null) {
+            sortFiles = Arrays.asList(file.listFiles());
+        }
         if (sortFiles != null && sortFiles.size() > 0) {
             Collections.sort(sortFiles, new Comparator<File>() {
                 @Override
@@ -90,11 +99,13 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             });
         }
         if (null != sortFiles && sortFiles.size() > 0) {
+            files.clear();
             for (File c : sortFiles) {
                 files.add(c);
             }
         }
-        pathFilesNumTv.setText(sortFiles.size() + "项");
+        currentPahtTv.setText("当前路径为:" + file.getAbsolutePath());
+        pathFilesNumTv.setText(files.size() + "项");
         adapter = new FilesListAdapter(getActivity(), (ArrayList<File>) files, isRoot);
         fileListView.setAdapter(adapter);
 
@@ -103,11 +114,34 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 buttonsLayout.setVisibility(View.VISIBLE);
                 adapter.setCheckBoxVisible(true);
-                FilesListAdapter.getIsChecked().put(position,true);
+                FilesListAdapter.getIsChecked().put(position, true);
                 adapter.notifyDataSetChanged();
                 return true;
             }
         });
+
+        fileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                final File file = (File) adapter.getItem(position);
+                if(position == 0 && file.getPath() != ROOT_PATH) {
+                    initData(currentParent);
+                } else {
+                    if (file.listFiles() != null && file.listFiles().length == 0) {
+                        initData(file);
+                    } else if(file.isDirectory()) {
+                        initData(file);
+                    } else if(file.isFile()) {
+                        openFile(file);
+                    }
+                }
+                currentParent = files.get(position);
+            }
+        });
+    }
+
+    private void openFile(File file) {
+
     }
 
     public static boolean RootCommand(String command) {
