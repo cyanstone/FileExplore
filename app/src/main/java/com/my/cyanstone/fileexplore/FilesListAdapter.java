@@ -24,7 +24,6 @@ public class FilesListAdapter extends BaseAdapter {
     private Context context;
     private List<File> files;
     private  static  HashMap<Integer,Boolean> isChecked;
-    boolean isPackageRoot;
     private boolean isCheckBoxVisible;
 
     public  void setCheckBoxVisible(boolean b){
@@ -35,10 +34,9 @@ public class FilesListAdapter extends BaseAdapter {
         return isCheckBoxVisible;
     }
 
-    public FilesListAdapter(Context context, ArrayList<File> files,boolean isPackageRoot){
+    public FilesListAdapter(Context context, ArrayList<File> files){
         this.context = context;
         this.files = files;
-        this.isPackageRoot = isPackageRoot;
         isChecked = new HashMap<Integer,Boolean>();
         isCheckBoxVisible = false;
         initData();
@@ -89,12 +87,6 @@ public class FilesListAdapter extends BaseAdapter {
         } else {
             viewHolder.isChoose.setVisibility(View.VISIBLE);
         }
-        if(position == 0 && !isPackageRoot) {
-            viewHolder.fileName.setText("..");
-            viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
-            viewHolder.fileInfo.setVisibility(View.GONE);
-            viewHolder.isChoose.setVisibility(View.GONE);
-        } else {
             if(file.isDirectory()) {
                 viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
                 File subDirectory = new File(file.getPath());
@@ -126,7 +118,6 @@ public class FilesListAdapter extends BaseAdapter {
                 }
             });
             viewHolder.isChoose.setChecked(getIsChecked().get(position));
-        }
         return convertView;
     }
 

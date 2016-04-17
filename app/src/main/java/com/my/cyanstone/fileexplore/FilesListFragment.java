@@ -1,8 +1,10 @@
 package com.my.cyanstone.fileexplore;
 
 
+import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,7 +27,7 @@ import java.util.List;
  * Created by bjshipeiqing on 2016/4/15.
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
-    private final String ROOT_PATH = "/";    // "/data/data/";// + getActivity().getPackageName();
+    private final String ROOT_PATH = "/";    // "/data/data/";// + context.getPackageName();
     private List<File> files;
     private FilesListAdapter adapter;
 
@@ -33,13 +35,13 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     private Button allChoose, cancelChoose, copy,delete;
     private TextView currentPahtTv, pathFilesNumTv;
     private LinearLayout buttonsLayout;
-
-    private static File currentParent;
+    private Context context;
+    private File fileParent;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        currentParent = new File(ROOT_PATH);
+        context = getActivity();
     }
 
     @Override
@@ -64,26 +66,27 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 return true;
             }
         });
-
         fileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 final File file = (File) adapter.getItem(position);
-                if(position == 0 && file.getPath() != ROOT_PATH) {
-                    initData(file.getParentFile());
-                } else {
-                    if (file.listFiles() != null && file.listFiles().length == 0) {
-                        initData(file);
-                    } else if(file.isDirectory()) {
-                        initData(file);
-                    } else if(file.isFile()) {
-                        openFile(file);
-                    }
+                fileParent = file;
+                if (file.isDirectory()) {
+                    initData(file);
+                } else if (file.isFile()) {
+                    openFile(file);
                 }
-                currentParent = files.get(position);
             }
         });
-
+        TextView emptyView = new TextView(context);
+        emptyView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        emptyView.setTextSize(24);
+        emptyView.setGravity(Gravity.CENTER);
+        emptyView.setText("`T_T`什么都没有`T_T`");
+        emptyView.setVisibility(View.GONE);
+        ((ViewGroup)fileListView.getParent()).addView(emptyView);
+        fileListView.setEmptyView(emptyView);
         allChoose = (Button) v.findViewById(R.id.all_choose);
         allChoose.setOnClickListener(this);
 
@@ -109,7 +112,6 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     }
 
     private void initData(File file) {
-        boolean isRoot = file.getAbsolutePath() == ROOT_PATH;
         List<File> sortFiles = new ArrayList<File>();
         if (file.listFiles() != null) {
             sortFiles = Arrays.asList(file.listFiles());
@@ -128,7 +130,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 }
             });
         }
-        if (null != sortFiles && sortFiles.size() > 0) {
+        if (null != sortFiles ) {
             files.clear();
             for (File c : sortFiles) {
                 files.add(c);
@@ -136,7 +138,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         }
         currentPahtTv.setText("当前路径为:" + file.getAbsolutePath());
         pathFilesNumTv.setText(files.size() + "项");
-        adapter = new FilesListAdapter(getActivity(), (ArrayList<File>) files, isRoot);
+        adapter = new FilesListAdapter(context, (ArrayList<File>) files);
         fileListView.setAdapter(adapter);
     }
 
@@ -178,6 +180,14 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     adapter.notifyDataSetChanged();
                     adapter.initData();
                     return true;
+            } else if(!fileParent.getPath().equals(ROOT_PATH)) {
+                if(fileParent.getParent() == null) {
+                    initData(new File(ROOT_PATH));
+                    return true;
+                } else {
+                    initData(fileParent.getParentFile());
+                    return true;
+                }
             }
             return false;
         }
