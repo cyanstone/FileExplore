@@ -54,6 +54,36 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
     private void initView(View v) {
         fileListView = (ListView) v.findViewById(R.id.files_list);
+        fileListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                buttonsLayout.setVisibility(View.VISIBLE);
+                adapter.setCheckBoxVisible(true);
+                FilesListAdapter.getIsChecked().put(position, true);
+                adapter.notifyDataSetChanged();
+                return true;
+            }
+        });
+
+        fileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                final File file = (File) adapter.getItem(position);
+                if(position == 0 && file.getPath() != ROOT_PATH) {
+                    initData(file.getParentFile());
+                } else {
+                    if (file.listFiles() != null && file.listFiles().length == 0) {
+                        initData(file);
+                    } else if(file.isDirectory()) {
+                        initData(file);
+                    } else if(file.isFile()) {
+                        openFile(file);
+                    }
+                }
+                currentParent = files.get(position);
+            }
+        });
+
         allChoose = (Button) v.findViewById(R.id.all_choose);
         allChoose.setOnClickListener(this);
 
@@ -108,36 +138,6 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         pathFilesNumTv.setText(files.size() + "项");
         adapter = new FilesListAdapter(getActivity(), (ArrayList<File>) files, isRoot);
         fileListView.setAdapter(adapter);
-
-        fileListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                buttonsLayout.setVisibility(View.VISIBLE);
-                adapter.setCheckBoxVisible(true);
-                FilesListAdapter.getIsChecked().put(position, true);
-                adapter.notifyDataSetChanged();
-                return true;
-            }
-        });
-
-        fileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                final File file = (File) adapter.getItem(position);
-                if(position == 0 && file.getPath() != ROOT_PATH) {
-                    initData(currentParent);
-                } else {
-                    if (file.listFiles() != null && file.listFiles().length == 0) {
-                        initData(file);
-                    } else if(file.isDirectory()) {
-                        initData(file);
-                    } else if(file.isFile()) {
-                        openFile(file);
-                    }
-                }
-                currentParent = files.get(position);
-            }
-        });
     }
 
     private void openFile(File file) {
