@@ -1,6 +1,7 @@
 package com.my.cyanstone.fileexplore;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,8 +24,10 @@ import java.util.List;
 public class FilesListAdapter extends BaseAdapter {
     private Context context;
     private List<File> files;
-    private  static  HashMap<Integer,Boolean> isChecked;
+    private  static  HashMap<Integer,Boolean> checkMap;
     private boolean isCheckBoxVisible;
+    private int checkedNum;
+    private CheckBoxChangedListener listener;
 
     public  void setCheckBoxVisible(boolean b){
         isCheckBoxVisible = b;
@@ -37,19 +40,40 @@ public class FilesListAdapter extends BaseAdapter {
     public FilesListAdapter(Context context, ArrayList<File> files){
         this.context = context;
         this.files = files;
-        isChecked = new HashMap<Integer,Boolean>();
+        checkMap = new HashMap<Integer,Boolean>();
         isCheckBoxVisible = false;
+        listener = new CheckBoxChangedListener() {
+            @Override
+            public void onChanged() {
+
+            }
+        };
         initData();
+    }
+
+    public void  setOnCheckBoxChangedListener(CheckBoxChangedListener listener) {
+        this.listener = listener;
     }
 
     public void initData() {
         for(int i = 0; i < files.size(); i++) {
             getIsChecked().put(i,false);
         }
+        checkedNum = 0;
+    }
+
+    public int getCheckedNum() {
+        checkedNum = 0;
+        for(int i = 0; i < files.size(); i++){
+            if(getIsChecked().get(i) == true) {
+                checkedNum++;
+            }
+        }
+        return checkedNum;
     }
 
     public static HashMap<Integer,Boolean> getIsChecked() {
-        return isChecked;
+        return checkMap;
     }
     @Override
     public int getCount() {
@@ -87,37 +111,46 @@ public class FilesListAdapter extends BaseAdapter {
         } else {
             viewHolder.isChoose.setVisibility(View.VISIBLE);
         }
-            if(file.isDirectory()) {
-                viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
-                File subDirectory = new File(file.getPath());
-                int num = 0;
-                if(subDirectory != null && subDirectory.list() != null) {
-                    num = subDirectory.listFiles().length;
-                }
-                viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + num + "个文件");
-            } else {
-                viewHolder.imageView.setImageResource(R.mipmap.icon_file);
-                String sizeInfo;
-                long fileSize = file.length();
-                if(fileSize > 1024 * 1024) {
-                    float size = fileSize / (1024 * 1024f);
-                    sizeInfo = new DecimalFormat("#.00").format(size) + "MB";
-                } else if(fileSize >= 1024) {
-                    float size = fileSize / 1024;
-                    sizeInfo = new DecimalFormat("#.00").format(size) + "KB";
-                } else {
-                    sizeInfo = new DecimalFormat("#.00").format(fileSize) + "B";
-                }
-                viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + sizeInfo);
+
+        if(!file.canRead()) {
+            FilesListFragment.RootCommand("chmod 777 " + file.getAbsolutePath());
+        }
+
+        if(file.isDirectory()) {
+            viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
+            File subDirectory = new File(file.getPath());
+            int num = 0;
+            if(subDirectory != null && subDirectory.list() != null) {
+                num = subDirectory.listFiles().length;
             }
-            viewHolder.fileName.setText(file.getName());
-            viewHolder.isChoose.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    getIsChecked().put(position, isChecked);
-                }
-            });
-            viewHolder.isChoose.setChecked(getIsChecked().get(position));
+            viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + num + "个文件");
+        } else {
+            viewHolder.imageView.setImageResource(R.mipmap.icon_file);
+            String sizeInfo;
+            long fileSize = file.length();
+            if(fileSize > 1024 * 1024) {
+                float size = fileSize / (1024 * 1024f);
+                sizeInfo = new DecimalFormat("#.00").format(size) + "MB";
+            } else if(fileSize >= 1024) {
+                float size = fileSize / 1024;
+                sizeInfo = new DecimalFormat("#.00").format(size) + "KB";
+            } else {
+                sizeInfo = new DecimalFormat("#.00").format(fileSize) + "B";
+            }
+            viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + sizeInfo);
+        }
+        viewHolder.fileName.setText(file.getName());
+        viewHolder.isChoose.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                getIsChecked().put(position, isChecked);
+                listener.onChanged();
+                Log.d("CheckedNum : ",checkedNum + "");
+                Log.d("HashMap:", checkMap.toString());
+                Log.d("Files:", files.toString());
+            }
+        });
+        viewHolder.isChoose.setChecked(getIsChecked().get(position));
         return convertView;
     }
 

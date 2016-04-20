@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+    <TextView
+        android:id="@+id/paste_mode_title_tv"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:gravity="center"
+        android:text="@string/paste_mode_title_text_view"
+        android:textSize="16sp"
+        android:visibility="gone"/>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="32dp"
@@ -21,19 +29,31 @@
             android:layout_marginRight="16dp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"/>
+            android:layout_weight="1"
+            android:visibility="visible"/>
+        <TextView
+            android:id="@+id/checked_file_nums"
+            android:layout_marginRight="16dp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:visibility="gone"/>
     </LinearLayout>
     <View
         android:background="@color/gray"
         android:layout_width="match_parent"
         android:layout_height="1dp" />
-    <ListView
-        android:id="@+id/files_list"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:headerDividersEnabled="true">
-    </ListView>
+        android:layout_weight="1">
+        <ListView
+            android:id="@+id/files_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:headerDividersEnabled="true">
+        </ListView>
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/buttons_layout"
@@ -46,9 +66,11 @@
             android:layout_width="match_parent"
             android:layout_height="1dp" />
         <LinearLayout
+            android:id="@+id/copy_delete_chooseAll_cancel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:visibility="visible">
             <Button
                 android:id="@+id/all_choose"
                 android:layout_width="0dp"
@@ -77,6 +99,34 @@
                 android:layout_weight="1"
                 android:textSize="16sp"
                 android:text="@string/delete_files"/>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/paste_mkdir_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <Button
+                android:id="@+id/mkdir"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:textSize="16sp"
+                android:text="@string/paste_mkdir"/>
+            <Button
+                android:id="@+id/paste"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:textSize="16sp"
+                android:text="@string/files_paste"/>
+            <Button
+                android:id="@+id/cancel_copy"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:textSize="16sp"
+                android:text="@string/cancel_copy"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
