@@ -2,8 +2,10 @@ package com.my.cyanstone.fileexplore;
 
 
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
@@ -21,8 +23,13 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,7 +42,7 @@ import java.util.List;
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
     private final String ROOT_PATH = "/";
-    private List<File> files;
+    private List<File> files,srcFiles;
     private FilesListAdapter adapter;
 
     private ListView fileListView;
@@ -43,9 +50,11 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     private TextView currentPahtTv, pathFilesNumTv, checkedFileNumTv,pasteModeTitleTv;
     private LinearLayout buttonsLayout,copyDeleteModeButtons,pastModeButtons;
     private Context context;
-    private File currentPath,pasteRecordePath,sdDir;
+    private File currentPath,pasteRecordePath,sdDir,dirFile;
+    private HashMap<Integer,Boolean> recordMap;
     private boolean isPasteMode;
     private EditText editFileName;
+    private ProgressDialog progressDialog;
 
     private String TAG = "FilesListFragment";
     private static final int NO_FILE_CHECKED = 0;
@@ -141,6 +150,11 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         String pathRoot = "chmod 777 " + ROOT_PATH;
         RootCommand(pathRoot);
         File file = new File(ROOT_PATH);
+
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setTitle("提示信息");
+        progressDialog.setCancelable(false);
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         initData(file);
     }
 
@@ -266,6 +280,8 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 break;
 
             case R.id.copy_files:
+                srcFiles = new ArrayList<File>(files);
+                Log.d(TAG,"copy srcFiles:" + srcFiles.toString());
                 if(adapter.getCheckedNum() == 0) {
                     createDialog(NO_FILE_CHECKED);
                 } else {
@@ -277,13 +293,10 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     if(sdCardExist) {
                         sdDir = Environment.getExternalStorageDirectory();
                         pasteRecordePath = currentPath;
+                        recordMap = FilesListAdapter.getIsChecked();
                         initData(sdDir);
                         adapter.setCheckBoxVisible(false);
-                        Log.d("CurrentPath",currentPath.getPath());
-                        HashMap<Integer,Boolean> map = FilesListAdapter.getIsChecked();
-                        for(int i = 0; i < files.size(); i++) {
-
-                        }
+                        Log.d("CurrentPath", currentPath.getPath());
                     } else {
                         createDialog(NO_SD_CARDS);
                     }
@@ -297,16 +310,22 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     if(map.get(i) == true) {
                         if(files.get(i).isDirectory()) {
                             boolean  flag = deleteDirectory(files.get(i).getPath());
+                            initData(currentPath);
+                            adapter.notifyDataSetChanged();
                             if (!flag) break;
                         } else {
                             boolean flag = deleteFile(files.get(i));
                             if(!flag) break;
+                            initData(currentPath);
+                            adapter.notifyDataSetChanged();
                         }
                     }
                 }
                 break;
 
             case R.id.paste:
+                    dirFile = currentPath;
+                    new CopyTask().execute();
                 break;
 
             case R.id.mkdir:
@@ -402,7 +421,11 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                         Log.d(TAG, newDir.getPath());
                         if(!newDir.exists()){
                             newDir.mkdir();
+                            Log.d(TAG, "新建的目录为 " + newDir.getAbsolutePath());
+                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
                             initData(currentPath);
+                            adapter.notifyDataSetChanged();
+                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
                         } else {
                             Toast.makeText(context, "文件夹已存在", Toast.LENGTH_LONG).show();
                         }
@@ -418,6 +441,108 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 break;
             default:
                 break;
+        }
+    }
+
+    private class CopyTask extends AsyncTask<Void,Void , Void> {
+
+        @Override
+        protected void onPreExecute() {
+            progressDialog.setMessage("正在复制中，请稍后...");
+            progressDialog.show();
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            Log.d(TAG,"doInBackground");
+            Log.d(TAG, "task:" + srcFiles.toString());
+            if(srcFiles!= null) {
+                for(int i = 0; i < srcFiles.size(); i++) {
+                    Log.d(TAG,recordMap.get(i) + "");
+                    Log.d(TAG,srcFiles.get(i).getAbsolutePath());
+                    if(recordMap.get(i)) {
+                        if(!srcFiles.get(i).canRead()) {
+                            RootCommand("chmod 777 " + srcFiles.get(i).getAbsolutePath());
+                        }
+                        if(srcFiles.get(i).isFile()) {
+                            try {
+                                copyFile(srcFiles.get(i),dirFile);
+                                Log.d(TAG, "复制文件"  + srcFiles.get(i) + "完毕");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        } else if(srcFiles.get(i).isDirectory()) {
+                            try {
+                                copyDirectiory(srcFiles.get(i).getAbsolutePath(),dirFile.getAbsolutePath());
+                                Log.d(TAG, "复制目录" + srcFiles.get(i) + "完毕");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            initData(dirFile);
+            adapter.notifyDataSetChanged();
+            progressDialog.dismiss();
+        }
+    }
+
+    // 复制文件
+    public static void copyFile(File sourceFile,File targetFile)
+            throws IOException {
+        // 新建文件输入流并对它进行缓冲
+        FileInputStream input = new FileInputStream(sourceFile);
+        BufferedInputStream inBuff=new BufferedInputStream(input);
+
+        // 新建文件输出流并对它进行缓冲
+        FileOutputStream output = new FileOutputStream(targetFile);
+        BufferedOutputStream outBuff=new BufferedOutputStream(output);
+
+        // 缓冲数组
+        byte[] b = new byte[1024 * 5];
+        int len;
+        while ((len =inBuff.read(b)) != -1) {
+            outBuff.write(b, 0, len);
+        }
+        // 刷新此缓冲的输出流
+        outBuff.flush();
+
+        //关闭流
+        inBuff.close();
+        outBuff.close();
+        output.close();
+        input.close();
+    }
+
+    // 复制文件夹
+    public static void copyDirectiory(String sourceDir, String targetDir)
+            throws IOException {
+
+        // 获取源文件夹当前下的文件或目录
+        File[] file = (new File(sourceDir)).listFiles();
+        for (int i = 0; i < file.length; i++) {
+            if (file[i].isFile()) {
+                // 源文件
+                File sourceFile=file[i];
+                // 目标文件
+                File targetFile=new
+                        File(new File(targetDir).getAbsolutePath()
+                        +File.separator+file[i].getName());
+                copyFile(sourceFile,targetFile);
+            }
+            if (file[i].isDirectory()) {
+                // 准备复制的源文件夹
+                String dir1=sourceDir + "/" + file[i].getName();
+                // 准备复制的目标文件夹
+                String dir2=targetDir + "/"+ file[i].getName();
+                copyDirectiory(dir1, dir2);
+            }
         }
     }
 }
