@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -30,6 +32,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,16 +45,19 @@ import java.util.List;
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
     private final String ROOT_PATH = "/";
-    private List<File> files,srcFiles;
+    //private String ROOT_PATH;
+    private List<File> files, srcFiles;
     private FilesListAdapter adapter;
 
     private ListView fileListView;
-    private Button allChoose, cancelChoose, copy,delete,paste,mkdir,cancelCopy;
-    private TextView currentPahtTv, pathFilesNumTv, checkedFileNumTv,pasteModeTitleTv;
-    private LinearLayout buttonsLayout,copyDeleteModeButtons,pastModeButtons;
+    private Button allChoose, cancelChoose, copy, delete, paste, mkdir,
+            cancelCopy;
+    private TextView currentPahtTv, pathFilesNumTv, checkedFileNumTv,
+            pasteModeTitleTv;
+    private LinearLayout buttonsLayout, copyDeleteModeButtons, pastModeButtons;
     private Context context;
-    private File currentPath,pasteRecordePath,sdDir,dirFile;
-    private HashMap<Integer,Boolean> recordMap;
+    private File currentPath, pasteRecordePath, sdDir, dirFile;
+    private HashMap<Integer, Boolean> recordMap;
     private boolean isPasteMode;
     private EditText editFileName;
     private ProgressDialog progressDialog;
@@ -65,10 +71,12 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = getActivity();
+        //ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_files_list, container, false);
         initView(v);
         v.setFocusable(true);
@@ -79,24 +87,27 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
     private void initView(View v) {
         fileListView = (ListView) v.findViewById(R.id.files_list);
-        fileListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                buttonsLayout.setVisibility(View.VISIBLE);
-                pathFilesNumTv.setVisibility(View.GONE);
-                checkedFileNumTv.setVisibility(View.VISIBLE);
-                adapter.setCheckBoxVisible(true);
-                FilesListAdapter.getIsChecked().put(position, true);
-                adapter.notifyDataSetChanged();
-                return true;
-            }
-        });
+        fileListView
+                .setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+                    @Override
+                    public boolean onItemLongClick(AdapterView<?> parent, View view,
+                                                   int position, long id) {
+                        buttonsLayout.setVisibility(View.VISIBLE);
+                        pathFilesNumTv.setVisibility(View.GONE);
+                        checkedFileNumTv.setVisibility(View.VISIBLE);
+                        adapter.setCheckBoxVisible(true);
+                        FilesListAdapter.getIsChecked().put(position, true);
+                        adapter.notifyDataSetChanged();
+                        return true;
+                    }
+                });
         fileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            public void onItemClick(AdapterView<?> parent, View view, int position,
+                                    long id) {
                 final File file = (File) adapter.getItem(position);
-                if(!file.canRead()) {
-                    RootCommand("chmod 777 " + file.getAbsolutePath() );
+                if (!file.canRead()) {
+                    RootCommand("chmod -R 777 " + file.getAbsolutePath());
                 }
                 if (file.isDirectory()) {
                     initData(file);
@@ -107,14 +118,15 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         });
 
         TextView emptyView = new TextView(context);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT);
         params.weight = 1.0f;
         emptyView.setLayoutParams(params);
         emptyView.setTextSize(24);
         emptyView.setGravity(Gravity.CENTER);
         emptyView.setText("空文件夹");
-        ((ViewGroup)fileListView.getParent()).addView(emptyView);
+        ((ViewGroup) fileListView.getParent()).addView(emptyView);
         fileListView.setEmptyView(emptyView);
         allChoose = (Button) v.findViewById(R.id.all_choose);
         allChoose.setOnClickListener(this);
@@ -143,11 +155,12 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         pasteModeTitleTv = (TextView) v.findViewById(R.id.paste_mode_title_tv);
 
         buttonsLayout = (LinearLayout) v.findViewById(R.id.buttons_layout);
-        copyDeleteModeButtons = (LinearLayout) v.findViewById(R.id.copy_delete_chooseAll_cancel);
+        copyDeleteModeButtons = (LinearLayout) v
+                .findViewById(R.id.copy_delete_chooseAll_cancel);
         pastModeButtons = (LinearLayout) v.findViewById(R.id.paste_mkdir_cancel);
 
         files = new ArrayList<File>();
-        String pathRoot = "chmod 777 " + ROOT_PATH;
+        String pathRoot = "chmod -R 777 " + ROOT_PATH;
         RootCommand(pathRoot);
         File file = new File(ROOT_PATH);
 
@@ -179,7 +192,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 }
             });
         }
-        if (null != sortFiles ) {
+        if (null != sortFiles) {
             files.clear();
             for (File c : sortFiles) {
                 files.add(c);
@@ -198,7 +211,16 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     }
 
     private void openFile(File file) {
-
+        Intent intent = new Intent();
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setAction(Intent.ACTION_VIEW);
+        String type = getMIMEType(file);
+        intent.setDataAndType(Uri.fromFile(file), type);
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(context, "未知类型，不能打开", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public static boolean RootCommand(String command) {
@@ -239,12 +261,13 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                         adapter.notifyDataSetChanged();
                         adapter.initData();
                         return true;
-                    } else if ( !isPasteMode &&  adapter.getCheckBoxVisible() == false && !currentPath.getPath().equals(ROOT_PATH)) {
+                    } else if (!isPasteMode && adapter.getCheckBoxVisible() == false
+                            && !currentPath.getPath().equals(ROOT_PATH)) {
                         Log.d("Back", currentPath.getParent());
                         initData(currentPath.getParentFile());
                         return true;
-                    } else if(isPasteMode &&  adapter.getCheckBoxVisible() == false) {
-                        if(currentPath.getPath().equals(sdDir.getPath())) {
+                    } else if (isPasteMode && adapter.getCheckBoxVisible() == false) {
+                        if (currentPath.getPath().equals(sdDir.getPath())) {
                             isPasteMode = false;
                             pasteModeTitleTv.setVisibility(View.GONE);
                             copyDeleteModeButtons.setVisibility(View.VISIBLE);
@@ -262,18 +285,19 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             return false;
         }
     };
+
     @Override
     public void onClick(View v) {
-        switch (v.getId()){
+        switch (v.getId()) {
             case R.id.all_choose:
-                for(int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
-                    FilesListAdapter.getIsChecked().put(i,true);
+                for (int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
+                    FilesListAdapter.getIsChecked().put(i, true);
                     adapter.notifyDataSetChanged();
                 }
                 break;
 
             case R.id.cancel_choose:
-                for(int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
+                for (int i = 0; i < FilesListAdapter.getIsChecked().size(); i++) {
                     FilesListAdapter.getIsChecked().put(i, false);
                     adapter.notifyDataSetChanged();
                 }
@@ -281,19 +305,21 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
             case R.id.copy_files:
                 srcFiles = new ArrayList<File>(files);
-                Log.d(TAG,"copy srcFiles:" + srcFiles.toString());
-                if(adapter.getCheckedNum() == 0) {
+                Log.d(TAG, "copy srcFiles:" + srcFiles.toString());
+                if (adapter.getCheckedNum() == 0) {
                     createDialog(NO_FILE_CHECKED);
                 } else {
                     isPasteMode = true;
                     pasteModeTitleTv.setVisibility(View.VISIBLE);
                     copyDeleteModeButtons.setVisibility(View.GONE);
                     pastModeButtons.setVisibility(View.VISIBLE);
-                    boolean sdCardExist = Environment.getExternalStorageState().equals(android.os.Environment.MEDIA_MOUNTED);
-                    if(sdCardExist) {
+                    boolean sdCardExist = Environment.getExternalStorageState().equals(
+                            android.os.Environment.MEDIA_MOUNTED);
+                    if (sdCardExist) {
                         sdDir = Environment.getExternalStorageDirectory();
                         pasteRecordePath = currentPath;
-                        recordMap = FilesListAdapter.getIsChecked();
+                        recordMap = new HashMap<Integer, Boolean>(
+                                FilesListAdapter.getIsChecked());
                         initData(sdDir);
                         adapter.setCheckBoxVisible(false);
                         Log.d("CurrentPath", currentPath.getPath());
@@ -305,17 +331,19 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 break;
 
             case R.id.delete_files:
-                HashMap<Integer,Boolean> map = FilesListAdapter.getIsChecked();
-                for(int i = 0; i < files.size(); i++) {
-                    if(map.get(i) == true) {
-                        if(files.get(i).isDirectory()) {
-                            boolean  flag = deleteDirectory(files.get(i).getPath());
+                HashMap<Integer, Boolean> map = FilesListAdapter.getIsChecked();
+                for (int i = 0; i < files.size(); i++) {
+                    if (map.get(i) == true) {
+                        if (files.get(i).isDirectory()) {
+                            boolean flag = deleteDirectory(files.get(i).getPath());
                             initData(currentPath);
                             adapter.notifyDataSetChanged();
-                            if (!flag) break;
+                            if (!flag)
+                                break;
                         } else {
                             boolean flag = deleteFile(files.get(i));
-                            if(!flag) break;
+                            if (!flag)
+                                break;
                             initData(currentPath);
                             adapter.notifyDataSetChanged();
                         }
@@ -324,8 +352,8 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 break;
 
             case R.id.paste:
-                    dirFile = currentPath;
-                    new CopyTask().execute();
+                dirFile = currentPath;
+                new CopyTask().execute();
                 break;
 
             case R.id.mkdir:
@@ -355,7 +383,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
     public boolean deleteDirectory(String filePath) {
         boolean flag = false;
-        //如果filePath不以文件分隔符结尾，自动添加文件分隔符
+        // 如果filePath不以文件分隔符结尾，自动添加文件分隔符
         if (!filePath.endsWith(File.separator)) {
             filePath = filePath + File.separator;
         }
@@ -365,20 +393,23 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         }
         flag = true;
         File[] files = dirFile.listFiles();
-        //遍历删除文件夹下的所有文件(包括子目录)
+        // 遍历删除文件夹下的所有文件(包括子目录)
         for (int i = 0; i < files.length; i++) {
             if (files[i].isFile()) {
-                //删除子文件
+                // 删除子文件
                 flag = deleteFile(files[i]);
-                if (!flag) break;
+                if (!flag)
+                    break;
             } else {
-                //删除子目录
+                // 删除子目录
                 flag = deleteDirectory(files[i].getAbsolutePath());
-                if (!flag) break;
+                if (!flag)
+                    break;
             }
         }
-        if (!flag) return false;
-        //删除当前空目录
+        if (!flag)
+            return false;
+        // 删除当前空目录
         return dirFile.delete();
     }
 
@@ -388,63 +419,69 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 new AlertDialog.Builder(context)
                         .setTitle("提示")
                         .setMessage("没有选择任何文件")
-                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
+                        .setPositiveButton(android.R.string.ok,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
 
-                            }
-                        }).show();
+                                    }
+                                }).show();
                 break;
             case NO_SD_CARDS:
                 new AlertDialog.Builder(context)
                         .setTitle("提示")
                         .setMessage("未检测到sd卡")
-                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
+                        .setPositiveButton(android.R.string.ok,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
 
-                            }
-                        })
-                        .show();
+                                    }
+                                }).show();
                 break;
             case MK_DIR:
                 AlertDialog.Builder dialog = new AlertDialog.Builder(context);
-                LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                LinearLayout layout = (LinearLayout) inflater.inflate(R.layout.dialog_mkdir,null);
+                LayoutInflater inflater = (LayoutInflater) context
+                        .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                LinearLayout layout = (LinearLayout) inflater.inflate(
+                        R.layout.dialog_mkdir, null);
                 dialog.setView(layout);
                 editFileName = (EditText) layout.findViewById(R.id.edit_dialog_mkdir);
-                dialog.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        String fileName = editFileName.getText().toString();
-                        File newDir = new File(currentPath.getAbsolutePath() + "//" + fileName);
-                        Log.d(TAG, newDir.getPath());
-                        if(!newDir.exists()){
-                            newDir.mkdir();
-                            Log.d(TAG, "新建的目录为 " + newDir.getAbsolutePath());
-                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
-                            initData(currentPath);
-                            adapter.notifyDataSetChanged();
-                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
-                        } else {
-                            Toast.makeText(context, "文件夹已存在", Toast.LENGTH_LONG).show();
-                        }
-                    }
-                }).setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
+                dialog
+                        .setPositiveButton(android.R.string.ok,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        String fileName = editFileName.getText().toString();
+                                        File newDir = new File(currentPath.getAbsolutePath()
+                                                + File.separator + fileName);
+                                        Log.d(TAG, newDir.getPath());
+                                        if (!newDir.exists()) {
+                                            newDir.mkdir();
+                                            Log.d(TAG, "新建的目录为 " + newDir.getAbsolutePath());
+                                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
+                                            initData(currentPath);
+                                            adapter.notifyDataSetChanged();
+                                            Log.d(TAG, "当前目录为 " + currentPath.getPath());
+                                        } else {
+                                            Toast.makeText(context, "文件夹已存在", Toast.LENGTH_LONG).show();
+                                        }
+                                    }
+                                })
+                        .setNegativeButton(android.R.string.cancel,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
 
-                    }
-                }).setTitle("新建文件夹")
-                        .setMessage("请输入文件夹名")
-                        .show();
+                                    }
+                                }).setTitle("新建文件夹").setMessage("请输入文件夹名").show();
                 break;
             default:
                 break;
         }
     }
 
-    private class CopyTask extends AsyncTask<Void,Void , Void> {
+    private class CopyTask extends AsyncTask<Void, Void, Void> {
 
         @Override
         protected void onPreExecute() {
@@ -454,26 +491,27 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
         @Override
         protected Void doInBackground(Void... params) {
-            Log.d(TAG,"doInBackground");
+            Log.d(TAG, "doInBackground");
             Log.d(TAG, "task:" + srcFiles.toString());
-            if(srcFiles!= null) {
-                for(int i = 0; i < srcFiles.size(); i++) {
-                    Log.d(TAG,recordMap.get(i) + "");
-                    Log.d(TAG,srcFiles.get(i).getAbsolutePath());
-                    if(recordMap.get(i)) {
-                        if(!srcFiles.get(i).canRead()) {
+            Log.d(TAG, "recordMap" + recordMap.toString());
+            if (srcFiles != null) {
+                for (int i = 0; i < srcFiles.size(); i++) {
+                    Log.d(TAG, recordMap.get(i) + "");
+                    Log.d(TAG, srcFiles.get(i).getAbsolutePath());
+                    if (recordMap.get(i)) {
+                        if (!srcFiles.get(i).canRead()) {
                             RootCommand("chmod 777 " + srcFiles.get(i).getAbsolutePath());
                         }
-                        if(srcFiles.get(i).isFile()) {
+                        if (srcFiles.get(i).isFile()) {
                             try {
-                                copyFile(srcFiles.get(i),dirFile);
-                                Log.d(TAG, "复制文件"  + srcFiles.get(i) + "完毕");
+                                copyFile(srcFiles.get(i), dirFile);
+                                Log.d(TAG, "复制文件" + srcFiles.get(i) + "完毕");
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
-                        } else if(srcFiles.get(i).isDirectory()) {
+                        } else if (srcFiles.get(i).isDirectory()) {
                             try {
-                                copyDirectiory(srcFiles.get(i).getAbsolutePath(),dirFile.getAbsolutePath());
+                                copyDirectiory(srcFiles.get(i), dirFile);
                                 Log.d(TAG, "复制目录" + srcFiles.get(i) + "完毕");
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -487,62 +525,152 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
         @Override
         protected void onPostExecute(Void aVoid) {
+            pasteModeTitleTv.setVisibility(View.GONE);
+            copyDeleteModeButtons.setVisibility(View.GONE);
+            pastModeButtons.setVisibility(View.GONE);
             initData(dirFile);
             adapter.notifyDataSetChanged();
             progressDialog.dismiss();
+
         }
     }
 
     // 复制文件
-    public static void copyFile(File sourceFile,File targetFile)
-            throws IOException {
-        // 新建文件输入流并对它进行缓冲
-        FileInputStream input = new FileInputStream(sourceFile);
-        BufferedInputStream inBuff=new BufferedInputStream(input);
-
-        // 新建文件输出流并对它进行缓冲
-        FileOutputStream output = new FileOutputStream(targetFile);
-        BufferedOutputStream outBuff=new BufferedOutputStream(output);
-
-        // 缓冲数组
-        byte[] b = new byte[1024 * 5];
-        int len;
-        while ((len =inBuff.read(b)) != -1) {
-            outBuff.write(b, 0, len);
+    public static void copyFile(File sourceFile, File destPah) throws IOException {
+    /*
+     * if(!sourceFile.canRead()) { RootCommand("chmod 777 " +
+     * sourceFile.getAbsolutePath()); }
+     */
+        File destFile = new File(destPah.getPath() + File.separator
+                + sourceFile.getName());
+        if (!destFile.exists()) {
+            destFile.createNewFile();
         }
-        // 刷新此缓冲的输出流
-        outBuff.flush();
 
-        //关闭流
-        inBuff.close();
-        outBuff.close();
-        output.close();
-        input.close();
+        FileChannel source = null;
+        FileChannel destination = null;
+
+        try {
+            source = new FileInputStream(sourceFile).getChannel();
+            destination = new FileOutputStream(destFile).getChannel();
+            destination.transferFrom(source, 0, source.size());
+        } finally {
+            if (source != null) {
+                source.close();
+            }
+            if (destination != null) {
+                destination.close();
+            }
+        }
     }
 
     // 复制文件夹
-    public static void copyDirectiory(String sourceDir, String targetDir)
+    public static void copyDirectiory(File sourceDir, File targetDir)
             throws IOException {
-
-        // 获取源文件夹当前下的文件或目录
-        File[] file = (new File(sourceDir)).listFiles();
+    /*
+     * if(!sourceDir.canRead()) { RootCommand("chmod 777 " +
+     * sourceDir.getAbsolutePath()); }
+     */
+        File[] file = (sourceDir).listFiles();
+        if(file != null) {
         for (int i = 0; i < file.length; i++) {
             if (file[i].isFile()) {
-                // 源文件
-                File sourceFile=file[i];
-                // 目标文件
-                File targetFile=new
-                        File(new File(targetDir).getAbsolutePath()
-                        +File.separator+file[i].getName());
-                copyFile(sourceFile,targetFile);
-            }
-            if (file[i].isDirectory()) {
-                // 准备复制的源文件夹
-                String dir1=sourceDir + "/" + file[i].getName();
-                // 准备复制的目标文件夹
-                String dir2=targetDir + "/"+ file[i].getName();
-                copyDirectiory(dir1, dir2);
+                File sourceFile = file[i];
+                copyFile(sourceFile, targetDir);
+            } else {
+                File subSourceDir = new File(sourceDir.getAbsolutePath()
+                        + File.separator + file[i].getName());
+                File subTargetDir = new File(targetDir.getAbsolutePath()
+                        + File.separator + file[i].getName());
+                if (!subTargetDir.exists()) {
+                    subTargetDir.mkdir();
+                }
+                copyDirectiory(subSourceDir, subTargetDir);
             }
         }
+        }
+    }
+
+    private final String[][] MIME_MapTable = {
+            // {后缀名， MIME类型}
+            { ".3gp", "video/3gpp" },
+            { ".apk", "application/vnd.android.package-archive" },
+            { ".asf", "video/x-ms-asf" },
+            { ".avi", "video/x-msvideo" },
+            { ".bin", "application/octet-stream" },
+            { ".bmp", "image/bmp" },
+            { ".c", "text/plain" },
+            { ".class", "application/octet-stream" },
+            { ".conf", "text/plain" },
+            { ".cpp", "text/plain" },
+            { ".doc", "application/msword" },
+            { ".docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+            { ".xls", "application/vnd.ms-excel" },
+            { ".xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+            { ".exe", "application/octet-stream" },
+            { ".gif", "image/gif" },
+            { ".gtar", "application/x-gtar" },
+            { ".gz", "application/x-gzip" },
+            { ".h", "text/plain" },
+            { ".htm", "text/html" },
+            { ".html", "text/html" },
+            { ".jar", "application/java-archive" },
+            { ".java", "text/plain" },
+            { ".jpeg", "image/jpeg" },
+            { ".jpg", "image/jpeg" },
+            { ".js", "application/x-javascript" },
+            { ".log", "text/plain" },
+            { ".m3u", "audio/x-mpegurl" },
+            { ".m4a", "audio/mp4a-latm" },
+            { ".m4b", "audio/mp4a-latm" },
+            { ".m4p", "audio/mp4a-latm" },
+            { ".m4u", "video/vnd.mpegurl" },
+            { ".m4v", "video/x-m4v" },
+            { ".mov", "video/quicktime" },
+            { ".mp2", "audio/x-mpeg" },
+            { ".mp3", "audio/x-mpeg" },
+            { ".mp4", "video/mp4" },
+            { ".mpc", "application/vnd.mpohun.certificate" },
+            { ".mpe", "video/mpeg" },
+            { ".mpeg", "video/mpeg" },
+            { ".mpg", "video/mpeg" },
+            { ".mpg4", "video/mp4" },
+            { ".mpga", "audio/mpeg" },
+            { ".msg", "application/vnd.ms-outlook" },
+            { ".ogg", "audio/ogg" },
+            { ".pdf", "application/pdf" },
+            { ".png", "image/png" },
+            { ".pps", "application/vnd.ms-powerpoint" },
+            { ".ppt", "application/vnd.ms-powerpoint" },
+            { ".pptx",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            { ".prop", "text/plain" }, { ".rc", "text/plain" },
+            { ".rmvb", "audio/x-pn-realaudio" }, { ".rtf", "application/rtf" },
+            { ".sh", "text/plain" }, { ".tar", "application/x-tar" },
+            { ".tgz", "application/x-compressed" }, { ".txt", "text/plain" },
+            { ".wav", "audio/x-wav" }, { ".wma", "audio/x-ms-wma" },
+            { ".wmv", "audio/x-ms-wmv" }, { ".wps", "application/vnd.ms-works" },
+            { ".xml", "text/plain" }, { ".z", "application/x-compress" },
+            { ".zip", "application/x-zip-compressed" }, { "", "*/*" } };
+
+    private String getMIMEType(File file) {
+        String type = "*/*";
+        String fileName = file.getName();
+        int dotIndex = fileName.indexOf('.');
+        if (dotIndex < 0) {
+            return type;
+        }
+        String end = fileName.substring(dotIndex, fileName.length()).toLowerCase();
+        if (end == "") {
+            return type;
+        }
+        for (int i = 0; i < MIME_MapTable.length; i++) {
+            if (end == MIME_MapTable[i][0]) {
+                type = MIME_MapTable[i][1];
+            }
+        }
+        return type;
     }
 }

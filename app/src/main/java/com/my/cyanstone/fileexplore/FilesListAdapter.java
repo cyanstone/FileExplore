@@ -112,9 +112,9 @@ public class FilesListAdapter extends BaseAdapter {
             viewHolder.isChoose.setVisibility(View.VISIBLE);
         }
 
-       // if(!file.canRead()) {
-        //    FilesListFragment.RootCommand("chmod 777 " + file.getAbsolutePath());
-       // }
+   /*    if(!file.canRead()) {
+            FilesListFragment.RootCommand("chmod -R 777 " + file.getAbsolutePath());
+        }*/
 
         if(file.isDirectory()) {
             viewHolder.imageView.setImageResource(R.mipmap.icon_directory);
