@@ -15,6 +15,9 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -25,8 +28,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
+
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -66,12 +68,23 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     private static final int NO_FILE_CHECKED = 0;
     private static final int NO_SD_CARDS = 1;
     private static final int MK_DIR = 2;
+    private static final int DELETE_FILES = 3;
+    private static final int UNKNOWN_FILE = 4;
+
+    private static final int UI_STATE_INIT = 5;
+    private static final int UI_STATE_BEFORE_COPY_DELETE = 6;
+    private static final int UI_STATE_CANCEL_COPY_DELETE = 7;
+    private static final int UI_STATE_BEFORE_PASTE = 8;
+    private static final int UI_STATE_AFTER_PASTE = 9;
+    private static final int UI_STATE_AFTER_DELETE = 10;
+    private static final int UI_STATE_PASTE_BACK_COPY = 11;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = getActivity();
-        //ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
+        setHasOptionsMenu(true);
+       // ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
     }
 
     @Override
@@ -92,12 +105,9 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     @Override
                     public boolean onItemLongClick(AdapterView<?> parent, View view,
                                                    int position, long id) {
-                        buttonsLayout.setVisibility(View.VISIBLE);
-                        pathFilesNumTv.setVisibility(View.GONE);
-                        checkedFileNumTv.setVisibility(View.VISIBLE);
-                        adapter.setCheckBoxVisible(true);
-                        FilesListAdapter.getIsChecked().put(position, true);
+                        uiStateConvert(UI_STATE_BEFORE_COPY_DELETE);
                         adapter.notifyDataSetChanged();
+                        FilesListAdapter.getIsChecked().put(position, true);
                         return true;
                     }
                 });
@@ -219,7 +229,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         try {
             startActivity(intent);
         } catch (Exception e) {
-            Toast.makeText(context, "未知类型，不能打开", Toast.LENGTH_SHORT).show();
+            createDialog(UNKNOWN_FILE);
         }
     }
 
@@ -254,10 +264,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             switch (event.getAction()) {
                 case KeyEvent.ACTION_DOWN:
                     if (adapter.getCheckBoxVisible() == true) {
-                        buttonsLayout.setVisibility(View.GONE);
-                        checkedFileNumTv.setVisibility(View.GONE);
-                        pathFilesNumTv.setVisibility(View.VISIBLE);
-                        adapter.setCheckBoxVisible(false);
+                        uiStateConvert(UI_STATE_CANCEL_COPY_DELETE);
                         adapter.notifyDataSetChanged();
                         adapter.initData();
                         return true;
@@ -269,12 +276,9 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     } else if (isPasteMode && adapter.getCheckBoxVisible() == false) {
                         if (currentPath.getPath().equals(sdDir.getPath())) {
                             isPasteMode = false;
-                            pasteModeTitleTv.setVisibility(View.GONE);
-                            copyDeleteModeButtons.setVisibility(View.VISIBLE);
-                            pastModeButtons.setVisibility(View.GONE);
+                            uiStateConvert(UI_STATE_PASTE_BACK_COPY);
                             initData(pasteRecordePath);
-                            adapter.setCheckBoxVisible(true);
-                            checkedFileNumTv.setText("已选择" + adapter.getCheckedNum() + "项");
+                            Toast.makeText(context,"返回到应用包路径",Toast.LENGTH_LONG).show();
                             return true;
                         } else {
                             initData(currentPath.getParentFile());
@@ -310,9 +314,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     createDialog(NO_FILE_CHECKED);
                 } else {
                     isPasteMode = true;
-                    pasteModeTitleTv.setVisibility(View.VISIBLE);
-                    copyDeleteModeButtons.setVisibility(View.GONE);
-                    pastModeButtons.setVisibility(View.VISIBLE);
+                    uiStateConvert(UI_STATE_BEFORE_PASTE);
                     boolean sdCardExist = Environment.getExternalStorageState().equals(
                             android.os.Environment.MEDIA_MOUNTED);
                     if (sdCardExist) {
@@ -321,7 +323,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                         recordMap = new HashMap<Integer, Boolean>(
                                 FilesListAdapter.getIsChecked());
                         initData(sdDir);
-                        adapter.setCheckBoxVisible(false);
+                        //adapter.setCheckBoxVisible(false);
                         Log.d("CurrentPath", currentPath.getPath());
                     } else {
                         createDialog(NO_SD_CARDS);
@@ -331,23 +333,13 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 break;
 
             case R.id.delete_files:
-                HashMap<Integer, Boolean> map = FilesListAdapter.getIsChecked();
-                for (int i = 0; i < files.size(); i++) {
-                    if (map.get(i) == true) {
-                        if (files.get(i).isDirectory()) {
-                            boolean flag = deleteDirectory(files.get(i).getPath());
-                            initData(currentPath);
-                            adapter.notifyDataSetChanged();
-                            if (!flag)
-                                break;
-                        } else {
-                            boolean flag = deleteFile(files.get(i));
-                            if (!flag)
-                                break;
-                            initData(currentPath);
-                            adapter.notifyDataSetChanged();
-                        }
-                    }
+                if (adapter.getCheckedNum() == 0) {
+                    createDialog(NO_FILE_CHECKED);
+                } else {
+                    recordMap = new HashMap<Integer, Boolean>(
+                            FilesListAdapter.getIsChecked());
+                    srcFiles = new ArrayList<File>(files);
+                    createDialog(DELETE_FILES);
                 }
                 break;
 
@@ -362,11 +354,8 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
             case R.id.cancel_copy:
                 isPasteMode = false;
-                pasteModeTitleTv.setVisibility(View.GONE);
-                copyDeleteModeButtons.setVisibility(View.VISIBLE);
-                pastModeButtons.setVisibility(View.GONE);
+                uiStateConvert(UI_STATE_CANCEL_COPY_DELETE);
                 initData(pasteRecordePath);
-                adapter.setCheckBoxVisible(true);
                 checkedFileNumTv.setText("已选择" + adapter.getCheckedNum() + "项");
                 break;
             default:
@@ -374,6 +363,76 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         }
     }
 
+    private void uiStateConvert(int code) {
+        switch (code) {
+            case UI_STATE_INIT :
+                adapter.setCheckBoxVisible(false);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                pathFilesNumTv.setVisibility(View.VISIBLE);
+                checkedFileNumTv.setVisibility(View.GONE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.GONE);
+                break;
+            case UI_STATE_BEFORE_COPY_DELETE :
+                adapter.setCheckBoxVisible(true);
+                pathFilesNumTv.setVisibility(View.GONE);
+                checkedFileNumTv.setVisibility(View.VISIBLE);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.VISIBLE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                // adapter.notifyDataSetChanged();
+                break;
+            case UI_STATE_CANCEL_COPY_DELETE:
+                adapter.setCheckBoxVisible(false);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                pathFilesNumTv.setVisibility(View.VISIBLE);
+                checkedFileNumTv.setVisibility(View.GONE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.GONE);
+                break;
+            case UI_STATE_BEFORE_PASTE:
+                pasteModeTitleTv.setVisibility(View.VISIBLE);
+                pathFilesNumTv.setVisibility(View.GONE);
+                checkedFileNumTv.setVisibility(View.VISIBLE);
+                adapter.setCheckBoxVisible(false);
+                buttonsLayout.setVisibility(View.VISIBLE);
+                copyDeleteModeButtons.setVisibility(View.GONE);
+                pastModeButtons.setVisibility(View.VISIBLE);
+                break;
+            case UI_STATE_AFTER_PASTE :
+                adapter.setCheckBoxVisible(false);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                pathFilesNumTv.setVisibility(View.VISIBLE);
+                checkedFileNumTv.setVisibility(View.GONE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.GONE);
+                break;
+            case UI_STATE_AFTER_DELETE:
+                adapter.setCheckBoxVisible(false);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                pathFilesNumTv.setVisibility(View.VISIBLE);
+                checkedFileNumTv.setVisibility(View.GONE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.GONE);
+                break;
+            case UI_STATE_PASTE_BACK_COPY:
+                adapter.setCheckBoxVisible(false);
+                pasteModeTitleTv.setVisibility(View.GONE);
+                pathFilesNumTv.setVisibility(View.VISIBLE);
+                checkedFileNumTv.setVisibility(View.GONE);
+                copyDeleteModeButtons.setVisibility(View.VISIBLE);
+                pastModeButtons.setVisibility(View.GONE);
+                buttonsLayout.setVisibility(View.GONE);
+                break;
+            default:
+                break;
+        }
+    }
     public boolean deleteFile(File file) {
         if (file.isFile() && file.exists()) {
             return file.delete();
@@ -476,6 +535,33 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                                     }
                                 }).setTitle("新建文件夹").setMessage("请输入文件夹名").show();
                 break;
+            case DELETE_FILES:
+                new AlertDialog.Builder(context)
+                        .setTitle("警告")
+                        .setMessage("确定要删除文件？")
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                new DeleteTask().execute();
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        }).show();
+                break;
+            case UNKNOWN_FILE:
+                new AlertDialog.Builder(context)
+                        .setTitle("提示信息")
+                        .setMessage("未知文件类型，无法打开")
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        }).show();
             default:
                 break;
         }
@@ -525,12 +611,43 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
         @Override
         protected void onPostExecute(Void aVoid) {
-            pasteModeTitleTv.setVisibility(View.GONE);
-            copyDeleteModeButtons.setVisibility(View.GONE);
-            pastModeButtons.setVisibility(View.GONE);
+            uiStateConvert(UI_STATE_AFTER_PASTE);
             initData(dirFile);
             adapter.notifyDataSetChanged();
             progressDialog.dismiss();
+        }
+    }
+
+    class DeleteTask extends AsyncTask<Void,Void,Void> {
+        @Override
+        protected void onPreExecute() {
+            progressDialog.setMessage("正在删除文件，请稍后...");
+            progressDialog.show();
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            for (int i = 0; i < files.size(); i++) {
+                if (recordMap.get(i) == true) {
+                    if (srcFiles.get(i).isDirectory()) {
+                        boolean flag = deleteDirectory(srcFiles.get(i).getPath());
+                        if (!flag)
+                            break;
+                    } else {
+                        boolean flag = deleteFile(srcFiles.get(i));
+                        if (!flag)
+                            break;
+                    }
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            progressDialog.dismiss();
+            uiStateConvert(UI_STATE_AFTER_DELETE);
+            initData(currentPath);
 
         }
     }
@@ -567,31 +684,54 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     // 复制文件夹
     public static void copyDirectiory(File sourceDir, File targetDir)
             throws IOException {
+        File subTargetDir = new File(targetDir.getAbsolutePath() + File.separator + sourceDir.getName());
+        if(!subTargetDir.exists()) {
+            subTargetDir.mkdir();
+        }
     /*
-     * if(!sourceDir.canRead()) { RootCommand("chmod 777 " +
+     * if(!sourceDir.canRead()) { RootCommand("chmod -R 777 " +
      * sourceDir.getAbsolutePath()); }
      */
         File[] file = (sourceDir).listFiles();
         if(file != null) {
-        for (int i = 0; i < file.length; i++) {
-            if (file[i].isFile()) {
-                File sourceFile = file[i];
-                copyFile(sourceFile, targetDir);
-            } else {
-                File subSourceDir = new File(sourceDir.getAbsolutePath()
-                        + File.separator + file[i].getName());
-                File subTargetDir = new File(targetDir.getAbsolutePath()
-                        + File.separator + file[i].getName());
-                if (!subTargetDir.exists()) {
-                    subTargetDir.mkdir();
+            for (int i = 0; i < file.length; i++) {
+                if (file[i].isFile()) {
+                    File sourceFile = file[i];
+                    copyFile(sourceFile, subTargetDir);
+                } else {
+                    File subSourceDir = new File(sourceDir.getAbsolutePath()
+                            + File.separator + file[i].getName());
+                    File subTargetPath = new File(subTargetDir.getAbsolutePath()
+                            + File.separator + file[i].getName());
+                    if (!subTargetPath.exists()) {
+                        subTargetDir.mkdir();
+                    }
+                    copyDirectiory(subSourceDir, subTargetDir);
                 }
-                copyDirectiory(subSourceDir, subTargetDir);
             }
-        }
         }
     }
 
-    private final String[][] MIME_MapTable = {
+    public static  String getMIMEType(File file) {
+        String type = "*/*";
+        String fileName = file.getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return type;
+        }
+        String end = fileName.substring(dotIndex, fileName.length()).toLowerCase();
+        if (end == "") {
+            return type;
+        }
+        for (int i = 0; i < MIME_MapTable.length; i++) {
+            if (end.equals(MIME_MapTable[i][0])) {
+                type = MIME_MapTable[i][1];
+            }
+        }
+        return type;
+    }
+
+    public static  final String[][] MIME_MapTable = {
             // {后缀名， MIME类型}
             { ".3gp", "video/3gpp" },
             { ".apk", "application/vnd.android.package-archive" },
@@ -654,23 +794,4 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             { ".wmv", "audio/x-ms-wmv" }, { ".wps", "application/vnd.ms-works" },
             { ".xml", "text/plain" }, { ".z", "application/x-compress" },
             { ".zip", "application/x-zip-compressed" }, { "", "*/*" } };
-
-    private String getMIMEType(File file) {
-        String type = "*/*";
-        String fileName = file.getName();
-        int dotIndex = fileName.indexOf('.');
-        if (dotIndex < 0) {
-            return type;
-        }
-        String end = fileName.substring(dotIndex, fileName.length()).toLowerCase();
-        if (end == "") {
-            return type;
-        }
-        for (int i = 0; i < MIME_MapTable.length; i++) {
-            if (end == MIME_MapTable[i][0]) {
-                type = MIME_MapTable[i][1];
-            }
-        }
-        return type;
-    }
 }

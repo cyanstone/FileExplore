@@ -11,6 +11,8 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+
 import java.io.File;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -105,13 +107,13 @@ public class FilesListAdapter extends BaseAdapter {
             viewHolder = (ViewHolder) convertView.getTag();
         }
 
-        File file = files.get(position);
         if(isCheckBoxVisible == false) {
             viewHolder.isChoose.setVisibility(View.GONE);
         } else {
             viewHolder.isChoose.setVisibility(View.VISIBLE);
         }
 
+        File file = files.get(position);
    /*    if(!file.canRead()) {
             FilesListFragment.RootCommand("chmod -R 777 " + file.getAbsolutePath());
         }*/
@@ -125,7 +127,37 @@ public class FilesListAdapter extends BaseAdapter {
             }
             viewHolder.fileInfo.setText(new SimpleDateFormat("yyyy/MM/dd HH:mm").format(file.lastModified()) + " " + num + "个文件");
         } else {
-            viewHolder.imageView.setImageResource(R.mipmap.icon_file);
+            //viewHolder.imageView.setImageResource(R.mipmap.icon_file_undefination);
+            String type = getFileType(file);
+            if(type.equals("txt")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_txt);
+            } else if(type.equals("json")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_json);
+            } else if(type.equals("xml")||type.equals("html")) {
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_xml);
+            } else if(type.equals("apk")) {
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_apk);
+            } else if(type.equals("dex")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_dex);
+            }else if(type.equals("png") || type.equals("jpg") || type.equals("gif") || type.equals("jpeg") || type.equals("bmp")) {
+                // viewHolder.imageView.setImageResource(R.mipmap.icon_file_image);
+                Glide.with(context)
+                        .load(file)
+                        .error(R.mipmap.icon_file_image)
+                        .into(viewHolder.imageView);
+            } else if(type.equals("jar")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_jar);
+            } else if(type.equals("zip") || type.equals("tar") || type.equals("7z") || type.equals("rar")) {
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_zip);
+            } else if(type.equals("pdf")) {
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_pdf);
+            } else if(type.equals("mp3") || type.equals("wma") || type.equals("wav") || type.equals("m4a")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_music);
+            } else if(type.equals("mp4") || type.equals("avi") || type.equals("rm") || type.equals("rmvb")|| type.equals("mkv") || type.equals("flv")){
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_veodio);
+            } else {
+                viewHolder.imageView.setImageResource(R.mipmap.icon_file_undefination);
+            }
             String sizeInfo;
             long fileSize = file.length();
             if(fileSize > 1024 * 1024) {
@@ -152,6 +184,17 @@ public class FilesListAdapter extends BaseAdapter {
         });
         viewHolder.isChoose.setChecked(getIsChecked().get(position));
         return convertView;
+    }
+
+    private String getFileType(File file) {
+        String type = "";
+        String name = file.getName();
+        int dotIndext = name.lastIndexOf(".");
+        if(dotIndext < 0) {
+            return type;
+        }
+        type = name.substring(dotIndext + 1,name.length()).toLowerCase();
+        return type;
     }
 
     class ViewHolder {
