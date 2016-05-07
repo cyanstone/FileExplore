@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.Gravity;
@@ -23,6 +25,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -34,11 +37,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 
@@ -56,13 +64,19 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             cancelCopy;
     private TextView currentPahtTv, pathFilesNumTv, checkedFileNumTv,
             pasteModeTitleTv;
-    private LinearLayout buttonsLayout, copyDeleteModeButtons, pastModeButtons;
+    private LinearLayout buttonsLayout, copyDeleteModeButtons, pastModeButtons, titleLayout;
     private Context context;
     private File currentPath, pasteRecordePath, sdDir, dirFile;
     private HashMap<Integer, Boolean> recordMap;
     private boolean isPasteMode;
     private EditText editFileName;
     private ProgressDialog progressDialog;
+    private ImageView fileServerImage;
+    private Snackbar snackbar;
+
+    private NanoHTTPD nanoHTTPD;
+    private int port;
+    private String hostAddress;
 
     private String TAG = "FilesListFragment";
     private static final int NO_FILE_CHECKED = 0;
@@ -78,13 +92,16 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     private static final int UI_STATE_AFTER_PASTE = 9;
     private static final int UI_STATE_AFTER_DELETE = 10;
     private static final int UI_STATE_PASTE_BACK_COPY = 11;
+    private static final int STOP_FILE_SERVER = 12;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = getActivity();
-        setHasOptionsMenu(true);
        // ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
+        hostAddress = getLocalIpAddress();
+        port = 8080;
+        nanoHTTPD = new FileWebServer(hostAddress,port,new File(ROOT_PATH),false,null);
     }
 
     @Override
@@ -168,12 +185,59 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         copyDeleteModeButtons = (LinearLayout) v
                 .findViewById(R.id.copy_delete_chooseAll_cancel);
         pastModeButtons = (LinearLayout) v.findViewById(R.id.paste_mkdir_cancel);
+        titleLayout = (LinearLayout) v.findViewById(R.id.title_layout);
 
         files = new ArrayList<File>();
         String pathRoot = "chmod -R 777 " + ROOT_PATH;
-        RootCommand(pathRoot);
-        File file = new File(ROOT_PATH);
+        // RootCommand(pathRoot);
+        final File file = new File(ROOT_PATH);
 
+        fileServerImage = (ImageView) v.findViewById(R.id.file_server_image);
+        fileServerImage.setSelected(false);
+        fileServerImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(!fileServerImage.isSelected()) {
+                    fileServerImage.setSelected(true);
+                    //Start Server
+                    try {
+                        startServer();
+                        snackbar = Snackbar.make(titleLayout,"IP:" + hostAddress + ":" + port,Snackbar.LENGTH_INDEFINITE);
+                        snackbar.setAction("知道了", new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                snackbar.dismiss();
+                            }
+                        });
+                        snackbar.show();
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    //stop Server
+                    createDialog(STOP_FILE_SERVER);
+                    if(snackbar.isShown()) {
+                        snackbar.dismiss();
+                    }
+                }
+            }
+        });
+        fileServerImage.setLongClickable(true);
+        fileServerImage.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                Snackbar.make(fileListView,"IP:" + hostAddress + ":" + port,Snackbar.LENGTH_INDEFINITE)
+                        .setAction("知道了", new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+
+                            }
+                        }).show();
+                Log.d(TAG,snackbar.toString());
+                return true;
+            }
+        });
         progressDialog = new ProgressDialog(context);
         progressDialog.setTitle("提示信息");
         progressDialog.setCancelable(false);
@@ -181,6 +245,28 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         initData(file);
     }
 
+    @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        snackbar = Snackbar.make(titleLayout,"IP:" + hostAddress + ":" + port,Snackbar.LENGTH_INDEFINITE);
+        snackbar.setAction("知道了", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                snackbar.dismiss();
+            }
+        });
+    }
+
+    public void startServer() throws IOException {
+        nanoHTTPD = new FileWebServer(hostAddress,port,new File(ROOT_PATH),true,null);
+        nanoHTTPD.start();
+    }
+
+    public void stopServer() {
+        if (nanoHTTPD != null) {
+            nanoHTTPD.stop();
+        }
+    }
     private void initData(File file) {
         currentPath = file;
         List<File> sortFiles = new ArrayList<File>();
@@ -208,7 +294,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 files.add(c);
             }
         }
-        currentPahtTv.setText("当前路径为:" + file.getAbsolutePath());
+        currentPahtTv.setText("路径:" + file.getAbsolutePath());
         pathFilesNumTv.setText(files.size() + "项");
         adapter = new FilesListAdapter(context, (ArrayList<File>) files);
         adapter.setOnCheckBoxChangedListener(new CheckBoxChangedListener() {
@@ -562,6 +648,22 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
                             }
                         }).show();
+            case STOP_FILE_SERVER:
+                new AlertDialog.Builder(context)
+                        .setTitle("提示信息")
+                        .setMessage("确认关闭文件服务器？\n关闭后将无法远程访问应用内文件")
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                stopServer();
+                                fileServerImage.setSelected(false);
+                            }
+                        }).setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                }).show();
             default:
                 break;
         }
@@ -586,7 +688,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                     Log.d(TAG, srcFiles.get(i).getAbsolutePath());
                     if (recordMap.get(i)) {
                         if (!srcFiles.get(i).canRead()) {
-                            RootCommand("chmod 777 " + srcFiles.get(i).getAbsolutePath());
+                            RootCommand("chmod -R 777 " + srcFiles.get(i).getAbsolutePath());
                         }
                         if (srcFiles.get(i).isFile()) {
                             try {
@@ -655,7 +757,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     // 复制文件
     public static void copyFile(File sourceFile, File destPah) throws IOException {
     /*
-     * if(!sourceFile.canRead()) { RootCommand("chmod 777 " +
+     * if(!sourceFile.canRead()) { RootCommand("chmod -R 777 " +
      * sourceFile.getAbsolutePath()); }
      */
         File destFile = new File(destPah.getPath() + File.separator
@@ -733,6 +835,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
     public static  final String[][] MIME_MapTable = {
             // {后缀名， MIME类型}
+            {".1","image/png"},
             { ".3gp", "video/3gpp" },
             { ".apk", "application/vnd.android.package-archive" },
             { ".asf", "video/x-ms-asf" },
@@ -793,5 +896,30 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             { ".wav", "audio/x-wav" }, { ".wma", "audio/x-ms-wma" },
             { ".wmv", "audio/x-ms-wmv" }, { ".wps", "application/vnd.ms-works" },
             { ".xml", "text/plain" }, { ".z", "application/x-compress" },
-            { ".zip", "application/x-zip-compressed" }, { "", "*/*" } };
+            { ".zip", "application/x-zip-compressed" }, { "", "*/*" }
+    };
+
+    public String getLocalIpAddress() {
+        try {
+            // 遍历网络接口
+            Enumeration<NetworkInterface> infos = NetworkInterface
+                    .getNetworkInterfaces();
+            while (infos.hasMoreElements()) {
+                // 获取网络接口
+                NetworkInterface niFace = infos.nextElement();
+                Enumeration<InetAddress> enumIpAddr = niFace.getInetAddresses();
+                while (enumIpAddr.hasMoreElements()) {
+                    InetAddress mInetAddress = enumIpAddr.nextElement();
+                    // 所获取的网络地址不是127.0.0.1时返回得得到的IP
+                    if (!mInetAddress.isLoopbackAddress()
+                            && mInetAddress instanceof Inet4Address) {
+                        return mInetAddress.getHostAddress().toString();
+                    }
+                }
+            }
+        } catch (SocketException e) {
+
+        }
+        return null;
+    }
 }
