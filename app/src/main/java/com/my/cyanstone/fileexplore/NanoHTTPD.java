@@ -33,6 +33,8 @@ package com.my.cyanstone.fileexplore;
  * #L%
  */
 
+import android.util.Log;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -58,6 +60,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -69,6 +72,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -190,6 +194,7 @@ public abstract class NanoHTTPD {
                     session.execute();
                 }
             } catch (Exception e) {
+                e.printStackTrace();
                 // When the socket is closed by the client,
                 // we throw our own SocketException
                 // to break the "keep alive" loop above. If
@@ -443,6 +448,7 @@ public abstract class NanoHTTPD {
                 try {
                     file.delete();
                 } catch (Exception ignored) {
+                    ignored.printStackTrace();
                     NanoHTTPD.LOG.log(Level.WARNING, "could not delete file ", ignored);
                 }
             }
@@ -705,6 +711,7 @@ public abstract class NanoHTTPD {
 
                 pre.put("uri", uri);
             } catch (IOException ioe) {
+                ioe.printStackTrace();
                 throw new ResponseException(Response.Status.INTERNAL_ERROR, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage(), ioe);
             }
         }
@@ -712,7 +719,8 @@ public abstract class NanoHTTPD {
         /**
          * Decodes the Multipart Body data and put it into Key/Value pairs.
          */
-        private void decodeMultipartFormData(ContentType contentType, ByteBuffer fbuf, Map<String, String> parms, Map<String, String> files) throws ResponseException {
+        private void decodeMultipartFormData(ContentType contentType, ByteBuffer fbuf, Map<String, String> parms,
+                                             Map<String, String> files) throws ResponseException {
             int pcount = 0;
             try {
                 int[] boundaryIdxs = getBoundaryPositions(fbuf, contentType.getBoundary().getBytes());
@@ -802,8 +810,10 @@ public abstract class NanoHTTPD {
                     }
                 }
             } catch (ResponseException re) {
+                re.printStackTrace();
                 throw re;
             } catch (Exception e) {
+                e.printStackTrace();
                 throw new ResponseException(Response.Status.INTERNAL_ERROR, e.toString());
             }
         }
@@ -858,8 +868,10 @@ public abstract class NanoHTTPD {
                 try {
                     read = this.inputStream.read(buf, 0, HTTPSession.BUFSIZE);
                 } catch (SSLException e) {
+                    e.printStackTrace();
                     throw e;
                 } catch (IOException e) {
+                    e.printStackTrace();
                     safeClose(this.inputStream);
                     safeClose(this.outputStream);
                     throw new SocketException("NanoHttpd Shutdown");
@@ -938,22 +950,27 @@ public abstract class NanoHTTPD {
                     throw new SocketException("NanoHttpd Shutdown");
                 }
             } catch (SocketException e) {
+                e.printStackTrace();
                 // throw it out to close socket object (finalAccept)
                 throw e;
             } catch (SocketTimeoutException ste) {
+                ste.printStackTrace();
                 // treat socket timeouts the same way we treat socket exceptions
                 // i.e. close the stream & finalAccept object by throwing the
                 // exception up the call stack.
                 throw ste;
             } catch (SSLException ssle) {
+                ssle.printStackTrace();
                 Response resp = newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "SSL PROTOCOL FAILURE: " + ssle.getMessage());
                 resp.send(this.outputStream);
                 safeClose(this.outputStream);
             } catch (IOException ioe) {
+                ioe.printStackTrace();
                 Response resp = newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
                 resp.send(this.outputStream);
                 safeClose(this.outputStream);
             } catch (ResponseException re) {
+                re.printStackTrace();
                 Response resp = newFixedLengthResponse(re.getStatus(), NanoHTTPD.MIME_PLAINTEXT, re.getMessage());
                 resp.send(this.outputStream);
                 safeClose(this.outputStream);
@@ -1066,6 +1083,7 @@ public abstract class NanoHTTPD {
                 TempFile tempFile = this.tempFileManager.createTempFile(null);
                 return new RandomAccessFile(tempFile.getName(), "rw");
             } catch (Exception e) {
+                e.printStackTrace();
                 throw new Error(e); // we won't recover, so throw an error
             }
         }
@@ -1172,7 +1190,9 @@ public abstract class NanoHTTPD {
                     src.position(offset).limit(offset + len);
                     dest.write(src.slice());
                     path = tempFile.getName();
-                } catch (Exception e) { // Catch exception if any
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // Catch exception if any
                     throw new Error(e); // we won't recover, so throw an error
                 } finally {
                     safeClose(fileOutputStream);
@@ -1269,6 +1289,7 @@ public abstract class NanoHTTPD {
             try {
                 return valueOf(method);
             } catch (IllegalArgumentException e) {
+                e.printStackTrace();
                 // TODO: Log it?
                 return null;
             }
@@ -1549,6 +1570,7 @@ public abstract class NanoHTTPD {
                 outputStream.flush();
                 safeClose(this.data);
             } catch (IOException ioe) {
+                ioe.printStackTrace();
                 NanoHTTPD.LOG.log(Level.SEVERE, "Could not send response to the client", ioe);
             }
         }
@@ -1565,6 +1587,7 @@ public abstract class NanoHTTPD {
                 try {
                     size = Long.parseLong(contentLengthString);
                 } catch (NumberFormatException ex) {
+                    ex.printStackTrace();
                     LOG.severe("content-length was no number " + contentLengthString);
                 }
             }
@@ -1685,6 +1708,7 @@ public abstract class NanoHTTPD {
                 myServerSocket.bind(hostname != null ? new InetSocketAddress(hostname, myPort) : new InetSocketAddress(myPort));
                 hasBinded = true;
             } catch (IOException e) {
+                e.printStackTrace();
                 this.bindException = e;
                 return;
             }
@@ -1695,8 +1719,10 @@ public abstract class NanoHTTPD {
                         finalAccept.setSoTimeout(this.timeout);
                     }
                     final InputStream inputStream = finalAccept.getInputStream();
+                    Log.d("dadf","===========");
                     NanoHTTPD.this.asyncRunner.exec(createClientHandler(finalAccept, inputStream));
                 } catch (IOException e) {
+                    e.printStackTrace();
                     NanoHTTPD.LOG.log(Level.FINE, "Communication with the client broken", e);
                 }
             } while (!NanoHTTPD.this.myServerSocket.isClosed());
@@ -1757,7 +1783,7 @@ public abstract class NanoHTTPD {
      * This is required as the Keep-Alive HTTP connections would otherwise block
      * the socket reading thread forever (or as long the browser is open).
      */
-    public static final int SOCKET_READ_TIMEOUT = 5000;
+    public static final int SOCKET_READ_TIMEOUT = 50000;
 
     /**
      * Common MIME type for dynamic content: plain text
@@ -1830,6 +1856,7 @@ public abstract class NanoHTTPD {
             properties.load(stream);
         } catch (IOException e) {
             e.printStackTrace();
+            e.printStackTrace();
         } finally {
             safeClose(stream);
         }
@@ -1850,6 +1877,7 @@ public abstract class NanoHTTPD {
             ctx.init(keyManagers, trustManagerFactory.getTrustManagers(), null);
             res = ctx.getServerSocketFactory();
         } catch (Exception e) {
+            e.printStackTrace();
             throw new IOException(e.getMessage());
         }
         return res;
@@ -1864,6 +1892,7 @@ public abstract class NanoHTTPD {
         try {
             return makeSSLSocketFactory(loadedKeyStore, loadedKeyFactory.getKeyManagers());
         } catch (Exception e) {
+            e.printStackTrace();
             throw new IOException(e.getMessage());
         }
     }
@@ -1886,6 +1915,7 @@ public abstract class NanoHTTPD {
             keyManagerFactory.init(keystore, passphrase);
             return makeSSLSocketFactory(keystore, keyManagerFactory);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new IOException(e.getMessage());
         }
     }
@@ -1920,6 +1950,7 @@ public abstract class NanoHTTPD {
                 }
             }
         } catch (IOException e) {
+            e.printStackTrace();
             NanoHTTPD.LOG.log(Level.SEVERE, "Could not close", e);
         }
     }
@@ -2063,6 +2094,7 @@ public abstract class NanoHTTPD {
         try {
             decoded = URLDecoder.decode(str, "UTF8");
         } catch (UnsupportedEncodingException ignored) {
+            ignored.printStackTrace();
             NanoHTTPD.LOG.log(Level.WARNING, "Encoding not supported, ignored", ignored);
         }
         return decoded;
@@ -2139,6 +2171,7 @@ public abstract class NanoHTTPD {
                 }
                 bytes = txt.getBytes(contentType.getEncoding());
             } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
                 NanoHTTPD.LOG.log(Level.SEVERE, "encoding problem, responding nothing", e);
                 bytes = new byte[0];
             }
@@ -2170,8 +2203,10 @@ public abstract class NanoHTTPD {
             try {
                 session.parseBody(files);
             } catch (IOException ioe) {
+                ioe.printStackTrace();
                 return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
             } catch (ResponseException re) {
+                re.printStackTrace();
                 return newFixedLengthResponse(re.getStatus(), NanoHTTPD.MIME_PLAINTEXT, re.getMessage());
             }
         }
@@ -2264,6 +2299,7 @@ public abstract class NanoHTTPD {
             try {
                 Thread.sleep(10L);
             } catch (Throwable e) {
+                e.printStackTrace();
                 // on android this may not be allowed, that's why we
                 // catch throwable the wait should be very short because we are
                 // just waiting for the bind of the socket
@@ -2285,6 +2321,7 @@ public abstract class NanoHTTPD {
                 this.myThread.join();
             }
         } catch (Exception e) {
+            e.printStackTrace();
             NanoHTTPD.LOG.log(Level.SEVERE, "Could not stop all connections", e);
         }
     }

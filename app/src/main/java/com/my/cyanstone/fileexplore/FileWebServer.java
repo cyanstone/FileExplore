@@ -32,6 +32,8 @@ package com.my.cyanstone.fileexplore;
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
+import android.util.Log;
+
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -287,7 +289,8 @@ public class FileWebServer extends NanoHTTPD {
     protected String listDirectory(String uri, File f) {
         String heading = "Directory " + uri;
         StringBuilder msg =
-                new StringBuilder("<html><head><title>" + heading + "</title><style><!--\n" + "span.dirname { font-weight: bold; }\n" + "span.filesize { font-size: 75%; }\n"
+                new StringBuilder("<html><head><title>" + heading + "</title>" +
+                        "<style><!--\n" + "span.dirname { font-weight: bold; }\n" + "span.filesize { font-size: 75%; }\n"
                         + "// -->\n" + "</style>" + "</head><body><h1>" + heading + "</h1>");
 
         String up = null;
@@ -349,6 +352,13 @@ public class FileWebServer extends NanoHTTPD {
             }
             msg.append("</ul>");
         }
+        //enctype="multipart/form-data"
+        msg.append(" <form action=\"http://10.235.93.175:8080/\" method=\"post\"  enctype=\"multipart/form-data\" onsubmit=\"return check()\">\n" +
+                " &nbsp&nbsp   <input type=\"file\" multiple name=\"files\" id=\"files\"/>  \n" +
+                " &nbsp&nbsp   <input type=\"submit\" value=\"上传文件\"/></form>");
+        msg.append("<script language=\"JavaScript\">" +
+                "function check() \n{ \nvar val=document.getElementById(\"files\").files;\n\n" +
+                "\nif(val.length == 0) { \nalert(\"未选择任何文件！\");\n return false;\n} else{\nreturn true;\n}\n}</script>");
         msg.append("</body></html>");
         return msg.toString();
     }
@@ -470,7 +480,12 @@ public class FileWebServer extends NanoHTTPD {
         Map<String, String> header = session.getHeaders();
         Map<String, String> parms = session.getParms();
         String uri = session.getUri();
+        if(session.getMethod().equals(Method.POST)){
+            InputStream in = session.getInputStream();
+            Log.d("FileWebServer",in.toString());
+            Log.d("FileWebServer",((HTTPSession)session).getBodySize()+"");
 
+        }
         if (!this.quiet) {
             System.out.println(session.getMethod() + " '" + uri + "' ");
 

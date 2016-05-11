@@ -7,6 +7,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -17,9 +19,6 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -54,8 +53,8 @@ import java.util.List;
  * Created by bjshipeiqing on 2016/4/15.
  */
 public class FilesListFragment extends Fragment implements View.OnClickListener{
-    private final String ROOT_PATH = "/";
-    //private String ROOT_PATH;
+    //private final String ROOT_PATH = "/";
+    private String ROOT_PATH;
     private List<File> files, srcFiles;
     private FilesListAdapter adapter;
 
@@ -98,8 +97,10 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = getActivity();
-       // ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
+        ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
         hostAddress = getLocalIpAddress();
+        getLocalIpInWifi();
+        getIpAddress();
         port = 8080;
         nanoHTTPD = new FileWebServer(hostAddress,port,new File(ROOT_PATH),false,null);
     }
@@ -648,6 +649,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
                             }
                         }).show();
+                break;
             case STOP_FILE_SERVER:
                 new AlertDialog.Builder(context)
                         .setTitle("提示信息")
@@ -664,6 +666,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
 
                     }
                 }).show();
+                break;
             default:
                 break;
         }
@@ -919,6 +922,43 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             }
         } catch (SocketException e) {
 
+        }
+        return null;
+    }
+
+    public String getLocalIpInWifi() {
+        WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        int ip = wifiInfo.getIpAddress();
+        String ipString = String.format(
+                "%d.%d.%d.%d",
+                (ip & 0xff),
+                (ip >> 8 & 0xff),
+                (ip >> 16 & 0xff),
+                (ip >> 24 & 0xff));
+        Log.d(TAG,"Wifi ip:"+ipString);
+        return ipString;
+    }
+
+    public String getIpAddress() {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface
+                    .getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf
+                        .getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress()
+                            && inetAddress instanceof Inet4Address) {
+                        // if (!inetAddress.isLoopbackAddress() && inetAddress
+                        // instanceof Inet6Address) {
+                        Log.d(TAG,"3G IP:" + inetAddress.getHostAddress().toString());
+                        return inetAddress.getHostAddress().toString();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return null;
     }
