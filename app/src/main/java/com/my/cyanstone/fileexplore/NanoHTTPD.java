@@ -151,6 +151,8 @@ import javax.net.ssl.TrustManagerFactory;
  * licence)
  */
 public abstract class NanoHTTPD {
+    private final static String TAG_NANOHTTPD = "NanoHTTPD";
+    private Loger loger = new Loger();
 
     /**
      * Pluggable strategy for asynchronously executing requests.
@@ -252,7 +254,7 @@ public abstract class NanoHTTPD {
      * Provides rudimentary support for cookies. Doesn't support 'path',
      * 'secure' nor 'httpOnly'. Feel free to improve it and/or add unsupported
      * features.
-     * 
+     *
      * @author LordFokas
      */
     public class CookieHandler implements Iterable<String> {
@@ -277,7 +279,7 @@ public abstract class NanoHTTPD {
         /**
          * Set a cookie with an expiration date from a month ago, effectively
          * deleting it on the client side.
-         * 
+         *
          * @param name
          *            The cookie name.
          */
@@ -292,7 +294,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Read a cookie from the HTTP Headers.
-         * 
+         *
          * @param name
          *            The cookie's name.
          * @return The cookie's value if it exists, null otherwise.
@@ -307,7 +309,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Sets a cookie.
-         * 
+         *
          * @param name
          *            The cookie's name.
          * @param value
@@ -322,7 +324,7 @@ public abstract class NanoHTTPD {
         /**
          * Internally used by the webserver to add all queued cookies into the
          * Response's HTTP Headers.
-         * 
+         *
          * @param response
          *            The Response object to which headers the queued cookies
          *            will be added.
@@ -605,6 +607,7 @@ public abstract class NanoHTTPD {
     }
 
     protected class HTTPSession implements IHTTPSession {
+        private static final String TAG_HTTPSESSION = "HTTPSession";
 
         private static final int REQUEST_BUFFER_LEN = 512;
 
@@ -664,21 +667,24 @@ public abstract class NanoHTTPD {
             try {
                 // Read the request line
                 String inLine = in.readLine();
+                Log.d(TAG_HTTPSESSION,"inLine = " + inLine);
                 if (inLine == null) {
                     return;
                 }
 
                 StringTokenizer st = new StringTokenizer(inLine);
+                Log.d(TAG_HTTPSESSION,"st.countTokens = " + st.countTokens());
                 if (!st.hasMoreTokens()) {
                     throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Syntax error. Usage: GET /example/file.html");
                 }
 
                 pre.put("method", st.nextToken());
-
+                Log.d(TAG_HTTPSESSION,"pre count :" + pre.size());
+                Log.d(TAG_HTTPSESSION,"method : "+ pre.get("method"));
                 if (!st.hasMoreTokens()) {
                     throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Missing URI. Usage: GET /example/file.html");
                 }
-
+                Log.d(TAG_HTTPSESSION,"st.countTokens() : " + st.countTokens());
                 String uri = st.nextToken();
 
                 // Decode parameters from the URI
@@ -701,15 +707,19 @@ public abstract class NanoHTTPD {
                     NanoHTTPD.LOG.log(Level.FINE, "no protocol version specified, strange. Assuming HTTP/1.1.");
                 }
                 String line = in.readLine();
+                Log.d(TAG_HTTPSESSION,"line = " + line);
                 while (line != null && !line.trim().isEmpty()) {
                     int p = line.indexOf(':');
                     if (p >= 0) {
                         headers.put(line.substring(0, p).trim().toLowerCase(Locale.US), line.substring(p + 1).trim());
                     }
+                    Log.d(TAG_HTTPSESSION,line.substring(0, p).trim().toLowerCase(Locale.US) + ":" + line.substring(p + 1).trim());
                     line = in.readLine();
+                    Log.d(TAG_HTTPSESSION,"line = " + line);
                 }
-
                 pre.put("uri", uri);
+                Log.d(TAG_HTTPSESSION,"uri:" + uri);
+                Log.d(TAG_HTTPSESSION,"pre size :" + pre.size());
             } catch (IOException ioe) {
                 ioe.printStackTrace();
                 throw new ResponseException(Response.Status.INTERNAL_ERROR, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage(), ioe);
@@ -867,6 +877,7 @@ public abstract class NanoHTTPD {
                 this.inputStream.mark(HTTPSession.BUFSIZE);
                 try {
                     read = this.inputStream.read(buf, 0, HTTPSession.BUFSIZE);
+                    Log.d(TAG_HTTPSESSION,"read = " + read);
                 } catch (SSLException e) {
                     e.printStackTrace();
                     throw e;
@@ -885,6 +896,7 @@ public abstract class NanoHTTPD {
                 while (read > 0) {
                     this.rlen += read;
                     this.splitbyte = findHeaderEnd(buf, this.rlen);
+                    Log.d(TAG_HTTPSESSION,"rlen = " + rlen + " , splitbyte = " + splitbyte);
                     if (this.splitbyte > 0) {
                         break;
                     }
@@ -892,19 +904,23 @@ public abstract class NanoHTTPD {
                 }
 
                 if (this.splitbyte < this.rlen) {
+                    Log.d(TAG_HTTPSESSION,"inputStream available() Before skip: " + inputStream.available());
                     this.inputStream.reset();
                     this.inputStream.skip(this.splitbyte);
+                    Log.d(TAG_HTTPSESSION,"inputStream available()  After skip: " + inputStream.available());
                 }
 
                 this.parms = new HashMap<String, String>();
                 if (null == this.headers) {
                     this.headers = new HashMap<String, String>();
                 } else {
+                    Log.d(TAG_HTTPSESSION,"headers size : " + headers.size());
                     this.headers.clear();
                 }
 
                 // Create a BufferedReader for parsing the header.
                 BufferedReader hin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buf, 0, this.rlen)));
+                Log.d(TAG_HTTPSESSION,"hin : " + hin.toString());
 
                 // Decode the header into parms and header java properties
                 Map<String, String> pre = new HashMap<String, String>();
@@ -916,15 +932,17 @@ public abstract class NanoHTTPD {
                 }
 
                 this.method = Method.lookup(pre.get("method"));
+                Log.d(TAG_HTTPSESSION,"this.method:" + this.method);
                 if (this.method == null) {
                     throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Syntax error. HTTP verb " + pre.get("method") + " unhandled.");
                 }
 
                 this.uri = pre.get("uri");
-
+                Log.d(TAG_HTTPSESSION,"this.uri:" + this.uri);
                 this.cookies = new CookieHandler(this.headers);
-
+                Log.d(TAG_HTTPSESSION,"header size : " + headers.size());
                 String connection = this.headers.get("connection");
+                Log.d(TAG_HTTPSESSION,"connection:" + this.headers.get("connection"));
                 boolean keepAlive = "HTTP/1.1".equals(protocolVersion) && (connection == null || !connection.matches("(?i).*close.*"));
 
                 // Ok, now do the serve()
@@ -1111,6 +1129,7 @@ public abstract class NanoHTTPD {
             RandomAccessFile randomAccessFile = null;
             try {
                 long size = getBodySize();
+                Log.d(TAG_HTTPSESSION,"bodySize = " + size);
                 ByteArrayOutputStream baos = null;
                 DataOutput requestDataOutput = null;
 
@@ -1136,6 +1155,7 @@ public abstract class NanoHTTPD {
                 ByteBuffer fbuf = null;
                 if (baos != null) {
                     fbuf = ByteBuffer.wrap(baos.toByteArray(), 0, baos.size());
+                    Log.d(TAG_HTTPSESSION,"fbuf:" + fbuf.toString());
                 } else {
                     fbuf = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, randomAccessFile.length());
                     randomAccessFile.seek(0);
@@ -1145,6 +1165,7 @@ public abstract class NanoHTTPD {
                 // in data section, too, read it:
                 if (Method.POST.equals(this.method)) {
                     ContentType contentType = new ContentType(this.headers.get("content-type"));
+                    Log.d(TAG_HTTPSESSION,"ContentType : " + contentType);
                     if (contentType.isMultipart()) {
                         String boundary = contentType.getBoundary();
                         if (boundary == null) {
@@ -1239,7 +1260,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Adds the files in the request body to the files map.
-         * 
+         *
          * @param files
          *            map to modify
          */
@@ -1247,14 +1268,14 @@ public abstract class NanoHTTPD {
 
         /**
          * Get the remote ip address of the requester.
-         * 
+         *
          * @return the IP address.
          */
         String getRemoteIpAddress();
 
         /**
          * Get the remote hostname of the requester.
-         * 
+         *
          * @return the hostname.
          */
         String getRemoteHostName();
@@ -1370,7 +1391,7 @@ public abstract class NanoHTTPD {
             @Override
             public void write(int b) throws IOException {
                 byte[] data = {
-                    (byte) b
+                        (byte) b
                 };
                 write(data, 0, 1);
             }
@@ -1478,7 +1499,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Indicate to close the connection after the Response has been sent.
-         * 
+         *
          * @param close
          *            {@code true} to hint connection closing, {@code false} to
          *            let connection be closed by client.
@@ -1619,7 +1640,7 @@ public abstract class NanoHTTPD {
          * Sends the body to the specified OutputStream. The pending parameter
          * limits the maximum amounts of bytes sent unless it is -1, in which
          * case everything is sent.
-         * 
+         *
          * @param outputStream
          *            the OutputStream to send data to
          * @param pending
@@ -1719,7 +1740,6 @@ public abstract class NanoHTTPD {
                         finalAccept.setSoTimeout(this.timeout);
                     }
                     final InputStream inputStream = finalAccept.getInputStream();
-                    Log.d("dadf","===========");
                     NanoHTTPD.this.asyncRunner.exec(createClientHandler(finalAccept, inputStream));
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -1826,8 +1846,8 @@ public abstract class NanoHTTPD {
     }
 
     @SuppressWarnings({
-        "unchecked",
-        "rawtypes"
+            "unchecked",
+            "rawtypes"
     })
     private static void loadMimeTypes(Map<String, String> result, String resourceName) {
      /* try {
@@ -1852,7 +1872,7 @@ public abstract class NanoHTTPD {
         Properties properties = new Properties();
         InputStream stream = null;
         try {
-           stream = MyApplication.getContext().getAssets().open(resourceName);
+            stream = MyApplication.getContext().getAssets().open(resourceName);
             properties.load(stream);
         } catch (IOException e) {
             e.printStackTrace();
@@ -1922,7 +1942,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Get MIME type from file name extension, if possible
-     * 
+     *
      * @param uri
      *            the string representing a file
      * @return the connected mime/type
@@ -2010,7 +2030,7 @@ public abstract class NanoHTTPD {
     /**
      * create a instance of the client handler, subclasses can return a subclass
      * of the ClientHandler.
-     * 
+     *
      * @param finalAccept
      *            the socket the cleint is connected to
      * @param inputStream
@@ -2024,7 +2044,7 @@ public abstract class NanoHTTPD {
     /**
      * Instantiate the server runnable, can be overwritten by subclasses to
      * provide a subclass of the ServerRunnable.
-     * 
+     *
      * @param timeout
      *            the socet timeout to use.
      * @return the server runnable.
@@ -2037,7 +2057,7 @@ public abstract class NanoHTTPD {
      * Decode parameters from a URL, handing the case where a single parameter
      * name might have been supplied several times, by return lists of values.
      * In general these lists will contain a single element.
-     * 
+     *
      * @param parms
      *            original <b>NanoHTTPD</b> parameters values, as passed to the
      *            <code>serve()</code> method.
@@ -2055,7 +2075,7 @@ public abstract class NanoHTTPD {
      * Decode parameters from a URL, handing the case where a single parameter
      * name might have been supplied several times, by return lists of values.
      * In general these lists will contain a single element.
-     * 
+     *
      * @param queryString
      *            a query string pulled from the URL.
      * @return a map of <code>String</code> (parameter name) to
@@ -2083,7 +2103,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Decode percent encoded <code>String</code> values.
-     * 
+     *
      * @param str
      *            the percent encoded <code>String</code>
      * @return expanded form of the input, for example "foo%20bar" becomes
@@ -2191,7 +2211,7 @@ public abstract class NanoHTTPD {
      * <p/>
      * <p/>
      * (By default, this returns a 404 "Not Found" plain text error response.)
-     * 
+     *
      * @param session
      *            The HTTP session
      * @return HTTP response, see class Response for details
@@ -2199,6 +2219,7 @@ public abstract class NanoHTTPD {
     public Response serve(IHTTPSession session) {
         Map<String, String> files = new HashMap<String, String>();
         Method method = session.getMethod();
+        Log.d(TAG_NANOHTTPD,"Method: " + method);
         if (Method.PUT.equals(method) || Method.POST.equals(method)) {
             try {
                 session.parseBody(files);
@@ -2221,7 +2242,7 @@ public abstract class NanoHTTPD {
      * <p/>
      * <p/>
      * (By default, this returns a 404 "Not Found" plain text error response.)
-     * 
+     *
      * @param uri
      *            Percent-decoded URI without parameters, for example
      *            "/index.cgi"
@@ -2241,7 +2262,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Pluggable strategy for asynchronously executing requests.
-     * 
+     *
      * @param asyncRunner
      *            new strategy for handling threads.
      */
@@ -2251,7 +2272,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Pluggable strategy for creating and cleaning up temporary files.
-     * 
+     *
      * @param tempFileManagerFactory
      *            new strategy for handling temp files.
      */
@@ -2261,7 +2282,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Start the server.
-     * 
+     *
      * @throws IOException
      *             if the socket is in use.
      */
@@ -2278,7 +2299,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Start the server.
-     * 
+     *
      * @param timeout
      *            timeout to use for socket connections.
      * @param daemon

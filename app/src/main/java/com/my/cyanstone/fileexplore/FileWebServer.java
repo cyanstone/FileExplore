@@ -32,6 +32,7 @@ package com.my.cyanstone.fileexplore;
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
+import android.os.Environment;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -39,6 +40,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,6 +59,7 @@ import java.util.StringTokenizer;
 //import fi.iki.elonen.util.ServerRunner;
 
 public class FileWebServer extends NanoHTTPD {
+
 
     /**
      * Default Index file names.
@@ -289,7 +292,7 @@ public class FileWebServer extends NanoHTTPD {
     protected String listDirectory(String uri, File f) {
         String heading = "Directory " + uri;
         StringBuilder msg =
-                new StringBuilder("<html><head><title>" + heading + "</title>" +
+                new StringBuilder("<!DOCTYPE HTML>\n<html><head><title>" + heading + "</title>" +
                         "<style><!--\n" + "span.dirname { font-weight: bold; }\n" + "span.filesize { font-size: 75%; }\n"
                         + "// -->\n" + "</style>" + "</head><body><h1>" + heading + "</h1>");
 
@@ -353,12 +356,30 @@ public class FileWebServer extends NanoHTTPD {
             msg.append("</ul>");
         }
         //enctype="multipart/form-data"
-        msg.append(" <form action=\"http://10.235.93.175:8080/\" method=\"post\"  enctype=\"multipart/form-data\" onsubmit=\"return check()\">\n" +
-                " &nbsp&nbsp   <input type=\"file\" multiple name=\"files\" id=\"files\"/>  \n" +
-                " &nbsp&nbsp   <input type=\"submit\" value=\"上传文件\"/></form>");
+        /*msg.append(" <form action=\"\" method=\"post\"  enctype=\"multipart/form-data\" onsubmit=\"return check()\">\n" +
+                " <input type=\"file\"  name=\"files\" id=\"files\"/>  \n" +
+                " <input type=\"submit\" value=\"上传文件\"/></form>");
         msg.append("<script language=\"JavaScript\">" +
                 "function check() \n{ \nvar val=document.getElementById(\"files\").files;\n\n" +
-                "\nif(val.length == 0) { \nalert(\"未选择任何文件！\");\n return false;\n} else{\nreturn true;\n}\n}</script>");
+                "\nif(val.length == 0) { \nalert(\"未选择任何文件！\");\n return false;\n} else{\nreturn true;\n}\n}</script>");*/
+        msg.append(" <input type=\"file\"  name=\"files\" id=\"files\"/> \n" +
+                " <input type=\"button\" onclick=\"UploadFile()\" value=\"上传文件\"/>\n");
+        msg.append("<script language=\"JavaScript\" >\n" +
+                "function UploadFile() \n{ \nvar val=document.getElementById(\"files\").files;\n\n" +
+                "\nif(val.length == 0) { \nalert(\"未选择任何文件！\");\n return false;\n} " +
+                "else{\n var fileObj = document.getElementById(\"files\").files[0];\n" +
+                "            var FileController = \"../\";\n" +
+                "            // FormData 对象\n" +
+                "            var form = new FormData();\n" +
+                "            form.append(\"file\", fileObj);" +
+                "            // XMLHttpRequest 对象\n" +
+                "            var xhr = new XMLHttpRequest();\n" +
+                "            xhr.open(\"post\", FileController, true);\n" +
+                "            xhr.onload = function () {\n" +
+                "                alert(\"上传完成!\");\n" +
+                "            };\n" +
+                "            xhr.send(form);\n" +
+                "        }\n"+ "\n}</script>");
         msg.append("</body></html>");
         return msg.toString();
     }
@@ -480,11 +501,47 @@ public class FileWebServer extends NanoHTTPD {
         Map<String, String> header = session.getHeaders();
         Map<String, String> parms = session.getParms();
         String uri = session.getUri();
-        if(session.getMethod().equals(Method.POST)){
+        /*if(session.getMethod().equals(Method.POST)){
             InputStream in = session.getInputStream();
             Log.d("FileWebServer",in.toString());
             Log.d("FileWebServer",((HTTPSession)session).getBodySize()+"");
 
+        }*/
+        if (session.getMethod() == Method.POST) {
+            try { session.parseBody(session.getParms()); }
+            catch (IOException e1) { e1.printStackTrace(); }
+            catch (ResponseException e1) { e1.printStackTrace(); }
+
+//            extraData = session.getParms().get("extra_data");
+            File file1 = new File(session.getParms().get("file"));
+            try{
+    /* 获取File对象，确定数据文件的信息 */
+                //File file  = new File(Environment.getExternalStorageDirectory()+"/f.txt");
+                File file  = new File(Environment.getExternalStorageDirectory(),"f.txt");
+
+    /* 判断sd的外部设置状态是否可以读写 */
+                if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+
+        /* 流的对象 *//*  */
+                    FileOutputStream fos = new FileOutputStream(file);
+
+        /* 需要写入的数据 */
+                    String message = "天气不是很好";
+
+        /* 将字符串转换成字节数组 */
+                    byte[] buffer = getByte(file1);
+
+        /* 开始写入数据 */
+                    fos.write(buffer);
+
+        /* 关闭流的使用 */
+                    fos.close();
+
+                }
+
+            }catch(Exception ex){
+
+            }
         }
         if (!this.quiet) {
             System.out.println(session.getMethod() + " '" + uri + "' ");
@@ -508,6 +565,37 @@ public class FileWebServer extends NanoHTTPD {
             }
         }
         return respond(Collections.unmodifiableMap(header), session, uri);
+    }
+
+
+    public static byte[] getByte(File file) throws Exception
+    {
+        byte[] bytes = null;
+        if(file!=null)
+        {
+            InputStream is = new FileInputStream(file);
+            int length = (int) file.length();
+            if(length>Integer.MAX_VALUE)   //当文件的长度超过了int的最大值
+            {
+                System.out.println("this file is max ");
+                return null;
+            }
+            bytes = new byte[length];
+            int offset = 0;
+            int numRead = 0;
+            while(offset<bytes.length&&(numRead=is.read(bytes,offset,bytes.length-offset))>=0)
+            {
+                offset+=numRead;
+            }
+            //如果得到的字节长度和file实际的长度不一致就可能出错了
+            if(offset<bytes.length)
+            {
+                System.out.println("file length is error");
+                return null;
+            }
+            is.close();
+        }
+        return bytes;
     }
 
     /**

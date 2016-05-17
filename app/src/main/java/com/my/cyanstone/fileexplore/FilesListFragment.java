@@ -98,9 +98,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         super.onCreate(savedInstanceState);
         context = getActivity();
         ROOT_PATH = File.separator + "data" + File.separator + "data" + File.separator + context.getPackageName();
-        hostAddress = getLocalIpAddress();
-        getLocalIpInWifi();
-        getIpAddress();
+        hostAddress = getLocalIpInWifi();
         port = 8080;
         nanoHTTPD = new FileWebServer(hostAddress,port,new File(ROOT_PATH),false,null);
     }
@@ -653,7 +651,7 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
             case STOP_FILE_SERVER:
                 new AlertDialog.Builder(context)
                         .setTitle("提示信息")
-                        .setMessage("确认关闭文件服务器？\n关闭后将无法远程访问应用内文件")
+                        .setMessage("确认关闭文件服务器？")
                         .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
@@ -936,23 +934,23 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
                 (ip >> 8 & 0xff),
                 (ip >> 16 & 0xff),
                 (ip >> 24 & 0xff));
-        Log.d(TAG,"Wifi ip:"+ipString);
+        Log.d(TAG, "Wifi ip:" + ipString);
         return ipString;
     }
 
     public String getIpAddress() {
         try {
             for (Enumeration<NetworkInterface> en = NetworkInterface
-                    .getNetworkInterfaces(); en.hasMoreElements();) {
+                    .getNetworkInterfaces(); en.hasMoreElements(); ) {
                 NetworkInterface intf = en.nextElement();
                 for (Enumeration<InetAddress> enumIpAddr = intf
-                        .getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                        .getInetAddresses(); enumIpAddr.hasMoreElements(); ) {
                     InetAddress inetAddress = enumIpAddr.nextElement();
                     if (!inetAddress.isLoopbackAddress()
                             && inetAddress instanceof Inet4Address) {
                         // if (!inetAddress.isLoopbackAddress() && inetAddress
                         // instanceof Inet6Address) {
-                        Log.d(TAG,"3G IP:" + inetAddress.getHostAddress().toString());
+                        Log.d(TAG, "3G IP:" + inetAddress.getHostAddress().toString());
                         return inetAddress.getHostAddress().toString();
                     }
                 }
