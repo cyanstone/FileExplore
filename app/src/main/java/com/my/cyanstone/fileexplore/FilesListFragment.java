@@ -36,25 +36,20 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 
 /**
  * Created by bjshipeiqing on 2016/4/15.
  */
-public class FilesListFragment extends Fragment implements View.OnClickListener{
+public class FilesListFragment extends Fragment implements View.OnClickListener {
     private final String ROOT_PATH = "/";
-    //private String ROOT_PATH;
+   // private String ROOT_PATH;
     private List<File> files, srcFiles;
     private FilesListAdapter adapter;
 
@@ -100,8 +95,8 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = getActivity();
-       /* ROOT_PATH = File.separator + "data" + File.separator + "data"
-                + File.separator + context.getPackageName();*/
+        //ROOT_PATH = File.separator + "data" + File.separator + "data"
+               // + File.separator + context.getPackageName();
         hostAddress = getLocalIpInWifi();
         port = 8080;
         nanoHTTPD = new FileWebServer(hostAddress, port, new File(ROOT_PATH),
@@ -976,4 +971,5 @@ public class FilesListFragment extends Fragment implements View.OnClickListener{
         Log.d(TAG, "Wifi ip:" + ipString);
         return ipString;
     }
+
 }

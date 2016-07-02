@@ -60,8 +60,6 @@ import java.util.StringTokenizer;
 
 public class FileWebServer extends NanoHTTPD {
 
-
-
     /**
      * Default Index file names.
      */
@@ -660,4 +658,5 @@ public class FileWebServer extends NanoHTTPD {
     final static String DEFAULT_ALLOWED_HEADERS = "origin,accept,content-type";
 
     public final static String ACCESS_CONTROL_ALLOW_HEADER_PROPERTY_NAME = "AccessControlAllowHeader";
+
 }
